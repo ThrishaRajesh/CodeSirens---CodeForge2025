@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Volunteer + Hospital Digital Twin</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    body, html { height: 100%; margin: 0; }
+    #map { height: 100%; }
+    .legend {
+      position:absolute; top:10px; left:10px; background:white; padding:5px; z-index:1000;
+      font-family:sans-serif; font-size:14px;
+    }
+    .flashing { animation: flash 0.8s infinite alternate; }
+    @keyframes flash { from {opacity:1;} to {opacity:0.2;} }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="legend">
+<b>Legend:</b><br>
+<img src="https://cdn-icons-png.flaticon.com/512/1077/1077114.png" width="18"/> Volunteer<br>
+<img src="https://cdn-icons-png.flaticon.com/512/1484/1484842.png" width="18"/> Hospital<br>
+<img src="https://cdn-icons-png.flaticon.com/512/3176/3176291.png" width="18"/> Shelter<br>
+<span style="color:red;">&#9632;</span> Blocked Road / High Risk Disaster<br>
+<span style="color:green;">&#9632;</span> Alternate Hospital / Low Risk Disaster
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+const socket = io();
+const map = L.map('map').setView([12.97,77.59], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+// Icons
+const volunteerIcon = L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/1077/1077114.png', iconSize:[30,30], iconAnchor:[15,30] });
+const hospitalIcon  = L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/1484/1484842.png', iconSize:[35,35], iconAnchor:[17,35] });
+const shelterIcon   = L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/3176/3176291.png', iconSize:[30,30], iconAnchor:[15,30] });
+const alternateIcon = L.icon({ iconUrl:'https://cdn-icons-png.flaticon.com/512/1484/1484842.png', iconSize:[30,30], iconAnchor:[15,30] });
+
+let volunteers=[], hospitals=[], shelters=[], blockedPaths=[], disasterMarkers=[];
+
+async function loadJSON(path){ const res=await fetch(path); return await res.json(); }
+
+async function initMarkers(){
+  const volunteerData = await loadJSON('data/volunteers.json');
+  volunteers = volunteerData.map(v => L.marker([v.lat,v.lng],{icon:volunteerIcon}).bindPopup(v.name).addTo(map));
+
+  const hospitalData = await loadJSON('data/hospitals.json');
+  hospitals = hospitalData.map(h => L.marker([h.lat,h.lng],{icon:hospitalIcon}).bindPopup(h.name).addTo(map));
+
+  const shelterData = await loadJSON('data/shelters.json');
+  shelters = shelterData.map(s => L.marker([s.lat,s.lng],{icon:shelterIcon}).bindPopup(s.name).addTo(map));
+
+  const blockedData = await loadJSON('data/blockedPaths.json');
+  blockedPaths = blockedData.map(b => L.polyline(b.coordinates.map(c=>[c[1],c[0]]), {color:'red', weight:5, opacity:0.7}).addTo(map));
+
+  const group = L.featureGroup([...volunteers,...hospitals,...shelters]);
+  map.fitBounds(group.getBounds(), {padding:[50,50]});
+}
+
+// Volunteer routing logic
+async function fetchRoute(olat, olng, dlat, dlng){
+  const url=`https://router.project-osrm.org/route/v1/driving/${olng},${olat};${dlng},${dlat}?overview=full&geometries=geojson`;
+  const res=await fetch(url); const data=await res.json();
+  return data.routes && data.routes[0] ? data.routes[0] : null;
+}
+
+function nearestHospital(vol, exclude=[]){
+  let minDist=Infinity, nearest=null;
+  hospitals.forEach(h=>{
+    if(exclude.includes(h)) return;
+    const d=vol.getLatLng().distanceTo(h.getLatLng());
+    if(d<minDist){ minDist=d; nearest=h; }
+  });
+  return nearest;
+}
+
+function intersectsBlockedPath(coords){
+  for(const b of blockedPaths){
+    const latlngs = b.getLatLngs();
+    for(const r of coords){
+      const [lng,lat]=r;
+      for(const bl of latlngs){
+        if(L.latLng(lat,lng).distanceTo(bl)<200) return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function routeVolunteers(){
+  for(const vol of volunteers){
+    let excludeHospitals=[], finalRoute=null, targetHospital=null;
+
+    while(true){
+      const hosp = nearestHospital(vol, excludeHospitals);
+      if(!hosp) break;
+
+      const route = await fetchRoute(vol.getLatLng().lat, vol.getLatLng().lng, hosp.getLatLng().lat, hosp.getLatLng().lng);
+      if(!route) break;
+
+      if(intersectsBlockedPath(route.geometry.coordinates)){
+        vol._icon.classList.add('flashing');
+        console.log(`${vol.getPopup().getContent()} blocked! Searching alternate hospital...`);
+
+        const nextHosp = nearestHospital(vol, [...excludeHospitals, hosp]);
+        if(nextHosp){
+          const reroute = await fetchRoute(vol.getLatLng().lat, vol.getLatLng().lng, nextHosp.getLatLng().lat, nextHosp.getLatLng().lng);
+          if(reroute){
+            L.geoJSON(reroute.geometry, {color:'green', weight:3, dashArray:'5,5'}).addTo(map);
+            animateVolunteer(vol, reroute.geometry);
+            targetHospital = nextHosp;
+            break;
+          }
+        }
+
+        excludeHospitals.push(hosp); continue;
+      } else {
+        vol._icon.classList.remove('flashing');
+        finalRoute=route; targetHospital=hosp; break;
+      }
+    }
+
+    if(finalRoute && targetHospital){
+      L.geoJSON(finalRoute.geometry,{color:'blue',weight:3}).addTo(map);
+      animateVolunteer(vol, finalRoute.geometry);
+    }
+  }
+}
+
+function animateVolunteer(vol, geom){
+  const coords = geom.coordinates; let i=0, latlng=L.latLng(coords[0][1], coords[0][0]);
+  function move(){
+    if(i<coords.length-1){
+      const next=L.latLng(coords[i+1][1], coords[i+1][0]);
+      const dist = latlng.distanceTo(next); const duration = dist/0.05; const steps=Math.floor(duration/20);
+      let stepCount=0;
+
+      const stepInterval = setInterval(()=>{
+        const lat = latlng.lat + (next.lat-latlng.lat)*(stepCount/steps);
+        const lng = latlng.lng + (next.lng-latlng.lng)*(stepCount/steps);
+        vol.setLatLng([lat,lng]);
+        socket.emit('volunteerUpdate',{id:vol._leaflet_id,lat,lng});
+        stepCount++;
+        if(stepCount>steps){ clearInterval(stepInterval); latlng=next; i++; move(); }
+      },20);
+    }
+  }
+  move();
+}
+
+socket.on('volunteerUpdate', data=>{
+  const vol=volunteers.find(v=>v._leaflet_id===data.id);
+  if(vol) vol.setLatLng([data.lat,data.lng]);
+});
+
+(async ()=>{ await initMarkers(); routeVolunteers(); })();
+
+// --- Disaster markers ---
+async function loadDisasters() {
+    try {
+        const res = await fetch('/disasters');
+        const data = await res.json();
+
+        disasterMarkers.forEach(m => map.removeLayer(m)); 
+        disasterMarkers = [];
+
+        data.forEach(d => {
+            const isHigh = d.risk_level === 'high';
+            const marker = L.circleMarker([d.lat, d.lng], {
+                radius: 12,
+                fillColor: isHigh ? 'red' : 'orange',
+                color: '#000',
+                weight: 1,
+                opacity: 1,
+                fillOpacity: 0.8,
+                className: isHigh ? 'flashing' : ''
+            }).addTo(map);
+
+            marker.bindPopup(`
+                <b>Disaster:</b> ${d.disaster_type}<br>
+                <b>Risk:</b> ${d.risk_level}<br>
+                <b>Time:</b> ${new Date(d.timestamp).toLocaleString()}
+            `);
+
+            disasterMarkers.push(marker);
+            // After adding all disaster markers
+if (disasterMarkers.length > 0) {
+    const group = L.featureGroup(disasterMarkers);
+    map.fitBounds(group.getBounds().pad(0.2)); // zooms map to show all disaster markers
+}
+
+        });
+    } catch (err) {
+        console.error('Failed to load disasters:', err);
+    }
+}
+
+// Refresh every 15s
+setInterval(loadDisasters, 15000);
+loadDisasters();
+</script>
+</body>
+</html>
