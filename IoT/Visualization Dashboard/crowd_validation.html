@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Crowd Validation / Trust Layer Demo — Corrected Logic</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600&display=swap');
+
+    body {
+      font-family: 'Manrope', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #e0f7fa, #ffffff);
+      min-height: 100vh;
+    }
+
+    header {
+      text-align: center;
+      padding: 30px 20px;
+      background: #00bcd4;
+      color: #fff;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 2em;
+    }
+
+    header p {
+      margin: 5px 0 0;
+      font-size: 1.05em;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 20px auto;
+      padding: 0 20px;
+    }
+
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .report-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.1);
+      transition: transform .2s, box-shadow .2s;
+    }
+
+    .report-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 12px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .report-card h3 {
+      margin-top: 0;
+      font-size: 1.1em;
+      color: #333;
+    }
+
+    .report-card p {
+      margin: 6px 0;
+      font-size: .95em;
+      color: #555;
+    }
+
+    .status {
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      display: inline-block;
+      margin-top: 5px;
+    }
+
+    .high {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .medium {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .low {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 40px;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 6px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    th,
+    td {
+      padding: 12px;
+      text-align: center;
+      border-bottom: 1px solid #ddd;
+    }
+
+    th {
+      background: #00bcd4;
+      color: #fff;
+    }
+
+    .muted {
+      font-size: 0.85em;
+      color: #666;
+      margin-top: 6px;
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Crowd Validation / Trust Layer</h1>
+    <p>Cross-verifying citizen reports and IoT sensor feeds with clear confidence logic</p>
+  </header>
+
+  <div class="container">
+    <h2>Live Report Cards</h2>
+    <div class="report-grid" id="reportGrid"></div>
+
+    <h2>Report Table</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Citizen Report</th>
+          <th>IoT Sensor</th>
+          <th>Confidence</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="reportTable"></tbody>
+    </table>
+  </div>
+
+  <script>
+
+    let reportId = 1;
+    const reportGrid = document.getElementById("reportGrid");
+    const reportTable = document.getElementById("reportTable");
+
+    const zones = ["A", "B", "C", "D", "E"];
+    const reportTypes = ["Flood", "Fire", "Power Outage", "Landslide"];
+
+    const sensorTypes = {
+      "Flood": ["Water HIGH", "Water LOW"],
+      "Fire": ["Fire Detected", "No Fire Detected"],
+      "Power Outage": ["Voltage Drop Detected", "No Issue"],
+      "Landslide": ["Soil Movement Detected", "No Movement"]
+    };
+
+    const reports = [];
+
+    function getRandomItem(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function generateReport() {
+      const type = getRandomItem(reportTypes);
+      const zone = getRandomItem(zones);
+
+      const match = Math.random() < 0.7;
+      const sensorReading = match ? sensorTypes[type][0] : sensorTypes[type][1];
+
+      const citizenReport = `${type} reported in Zone ${zone}`;
+
+      const report = {
+        id: reportId++,
+        type,
+        zone,
+        citizen: citizenReport,
+        sensor: sensorReading,
+        match // boolean
+      };
+
+      reports.push(report);
+      updateDisplay();
+    }
+
+    function getConfidence(report) {
+      if (report.match) {
+        return { score: 90, status: "Reliable", class: "high", reason: "Sensor and citizen report agree." };
+      }
+
+      const supportingEvidence = Math.random() < 0.5;
+      if (supportingEvidence) {
+        return { score: 50, status: "Conflicting", class: "medium", reason: "Primary sensor disagrees but there is partial supporting evidence." };
+      } else {
+        return { score: 20, status: "Unreliable", class: "low", reason: "Primary sensor disagrees and no additional support found." };
+      }
+    }
+
+    function updateDisplay() {
+      reportGrid.innerHTML = "";
+      reports.slice(-8).reverse().forEach(r => {
+        const conf = getConfidence(r);
+        const card = document.createElement("div");
+        card.className = "report-card";
+        card.innerHTML = `
+      <h3>${r.citizen}</h3>
+      <p><strong>Sensor:</strong> ${r.sensor}</p>
+      <p><strong>Confidence:</strong> ${conf.score}%</p>
+      <span class="status ${conf.class}">${conf.status}</span>
+      <span class="muted">${conf.reason}</span>
+    `;
+        reportGrid.appendChild(card);
+      });
+
+      reportTable.innerHTML = "";
+      reports.slice(-12).reverse().forEach(r => {
+        const conf = getConfidence(r);
+        const row = `<tr class="${conf.class}">
+      <td>${r.id}</td>
+      <td>${r.citizen}</td>
+      <td>${r.sensor}</td>
+      <td>${conf.score}%</td>
+      <td class="status ${conf.class}">${conf.status}</td>
+    </tr>`;
+        reportTable.innerHTML += row;
+      });
+    }
+
+    generateReport();
+    setInterval(generateReport, 4000);
+  </script>
+</body>
+
+</html>
