@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🚨 Disaster Detection & Location System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        h1 { color: #333; text-align: center; margin-bottom: 10px; font-size: 2.2em; }
+        .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 1.1em; }
+        .location-section { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #007bff; }
+        .location-status { font-weight: bold; margin-bottom: 10px; }
+        .location-info { font-size: 14px; color: #666; margin: 5px 0; }
+        .upload-section { margin: 30px 0; text-align: center; padding: 30px; border: 2px dashed #ddd; border-radius: 10px; background-color: #fafafa; }
+        input[type="file"] { margin: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white; padding: 12px 22px; border: none; border-radius: 25px; cursor: pointer;
+            font-size: 16px; font-weight: 600; margin: 8px; transition: all 0.2s ease;
+        }
+        button:hover { transform: translateY(-1px); box-shadow: 0 5px 15px rgba(0,0,0,0.2); }
+        button:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+        .location-btn { background: linear-gradient(45deg, #4ecdc4, #44a08d); font-size: 15px; padding: 10px 18px; }
+        .mic-btn { background: linear-gradient(45deg, #20bf55, #01baef); }
+        .stop-btn { background: linear-gradient(45deg, #b71c1c, #e53935); }
+        .secondary-btn { background: #6c757d; }
+        .results-section { margin-top: 30px; }
+        .disaster-summary { background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 5px solid #007bff; }
+        .high-risk { border-left-color: #dc3545; background-color: #fff5f5; }
+        .medium-risk { border-left-color: #ffc107; background-color: #fffbf0; }
+        .low-risk { border-left-color: #28a745; background-color: #f8fff8; }
+        .detailed-results { background-color: #f8f8f8; padding: 20px; border-radius: 10px; margin-top: 20px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; max-height: 400px; overflow-y: auto; white-space: pre-wrap; }
+        .loading { text-align: center; color: #666; font-style: italic; }
+        .disaster-type { font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 8px; }
+        .confidence { color: #666; margin-bottom: 12px; }
+        .features { list-style-type: none; padding: 0; }
+        .features li { background: white; padding: 6px 12px; margin: 5px 6px; border-radius: 18px; display: inline-block; box-shadow: 0 2px 5px rgba(0,0,0,0.08); font-size: 14px; }
+        .toggle-details { background: #6c757d; font-size: 14px; padding: 8px 16px; }
+        .location-enabled { color: #28a745; }
+        .location-disabled { color: #dc3545; }
+        .location-data { background: #e8f4fd; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #007bff; }
+        .voice-wrap { background: #f0f7ff; border: 1px dashed #b3d4fc; padding: 16px; border-radius: 10px; margin-top: 12px; }
+        .inline { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .pill { background:#eef2ff; padding:4px 10px; border-radius:999px; font-size:12px; color:#333; }
+        textarea { width: 100%; min-height: 70px; padding: 10px; border-radius: 8px; border:1px solid #ddd; font-size:14px; }
+        audio { width: 100%; margin-top: 10px; }
+        small.muted { color:#6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Disaster Detection & Location System</h1>
+        <p class="subtitle">Upload disaster images and/or use voice to describe the situation — with automatic location tracking</p>
+
+        <!-- Location Section -->
+        <div class="location-section">
+            <div class="location-status" id="locationStatus">📍 Location Status: Checking...</div>
+            <div class="location-info" id="locationInfo">Waiting for location permission...</div>
+            <button onclick="requestLocation()" id="locationBtn" class="location-btn">📍 Get My Location</button>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <p>📸 Select a disaster image for analysis (optional)</p>
+            <input type="file" id="imageInput" accept="image/*">
+
+            <div class="voice-wrap">
+                <div class="inline">
+                    <span class="pill">🎤 Voice input</span>
+                    <button id="recordBtn" class="mic-btn">Start Recording</button>
+                    <button id="stopBtn" class="stop-btn" disabled>Stop</button>
+                    <span id="recTimer" class="pill">00:00</span>
+                </div>
+                <audio id="audioPlayback" controls style="display:none;"></audio>
+                <textarea id="transcript" placeholder="Transcript will appear here. You can also type details if mic isn’t supported."></textarea>
+                <small class="muted">Tip: You can submit with image, voice, or both.</small>
+            </div>
+
+            <br>
+            <button onclick="submitReport()" id="analyzeBtn">🚀 Submit for Analysis</button>
+        </div>
+
+        <!-- Results Section -->
+        <div class="results-section">
+            <h3>Analysis Results:</h3>
+            <div id="disasterSummary"></div>
+            <div id="locationData" style="display:none;"></div>
+            <button onclick="toggleDetails()" id="toggleBtn" class="toggle-details" style="display:none;">Show Detailed Results</button>
+            <div id="detailedResults" class="detailed-results" style="display:none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let userLocation = null;
+        let userAddress = null;
+        let showingDetails = false;
+
+        // Voice recording state
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let recordTimerInterval = null;
+        let recordSeconds = 0;
+        let recordedBlob = null; // latest recorded audio blob
+
+        window.onload = function() { requestLocation(); initRecorderUI(); };
+
+        function initRecorderUI() {
+            const recordBtn = document.getElementById('recordBtn');
+            const stopBtn = document.getElementById('stopBtn');
+
+            const supported = !!(navigator.mediaDevices && window.MediaRecorder);
+            if (!supported) {
+                recordBtn.disabled = true;
+                stopBtn.disabled = true;
+                recordBtn.textContent = 'Mic not supported';
+                return;
+            }
+
+            recordBtn.addEventListener('click', startRecording);
+            stopBtn.addEventListener('click', stopRecording);
+        }
+
+        async function startRecording() {
+            const recordBtn = document.getElementById('recordBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const timer = document.getElementById('recTimer');
+            const playback = document.getElementById('audioPlayback');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioChunks = [];
+                recordedBlob = null;
+                mediaRecorder = new MediaRecorder(stream, { mimeType: getPreferredMimeType() });
+
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.onstop = () => {
+                    try { stream.getTracks().forEach(t => t.stop()); } catch {}
+                    recordedBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType });
+                    playback.src = URL.createObjectURL(recordedBlob);
+                    playback.style.display = 'block';
+                    // Auto-fill transcript using built-in speech recognition if available (nice-to-have fallback)
+                    tryBrowserSTT();
+                };
+
+                mediaRecorder.start();
+                recordBtn.disabled = true; stopBtn.disabled = false;
+                timerStart();
+            } catch (err) {
+                alert('Microphone access failed. You can type in the transcript box instead.');
+                console.error(err);
+            }
+        }
+
+        function stopRecording() {
+            const recordBtn = document.getElementById('recordBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            const timer = document.getElementById('recTimer');
+
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') { mediaRecorder.stop(); }
+            stopBtn.disabled = true; recordBtn.disabled = false;
+            timerStop();
+            timer.textContent = '00:00';
+        }
+
+        function getPreferredMimeType() {
+            // Prefer webm/opus in Chromium, else let the browser decide.
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
+            if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm';
+            if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4';
+            return '';
+        }
+
+        function timerStart() {
+            recordSeconds = 0;
+            recordTimerInterval = setInterval(() => {
+                recordSeconds++;
+                const m = String(Math.floor(recordSeconds / 60)).padStart(2, '0');
+                const s = String(recordSeconds % 60).padStart(2, '0');
+                document.getElementById('recTimer').textContent = `${m}:${s}`;
+            }, 1000);
+        }
+        function timerStop() { if (recordTimerInterval) clearInterval(recordTimerInterval); }
+
+        async function tryBrowserSTT() {
+            // Optional nicety: if Web Speech API exists, auto-fill transcript client-side.
+            const textarea = document.getElementById('transcript');
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                // Not auto-triggering here to avoid extra permissions noise.
+                // Server-side Whisper is the primary STT; this is just a fallback hint for devs.
+                textarea.placeholder = 'Transcript ready after server analysis. You can type details now if you want.';
+            }
+        }
+
+        async function requestLocation() {
+            const statusDiv = document.getElementById("locationStatus");
+            const infoDiv = document.getElementById("locationInfo");
+
+            if (!navigator.geolocation) {
+                statusDiv.innerHTML = '❌ Location Status: <span class="location-disabled">Not Supported</span>';
+                infoDiv.textContent = "Geolocation is not supported by this browser.";
+                return;
+            }
+
+            statusDiv.innerHTML = '⏳ Location Status: <span style="color: #ffc107;">Getting Location...</span>';
+            infoDiv.textContent = "Please allow location access when prompted.";
+
+            navigator.geolocation.getCurrentPosition(
+                async function(position) {
+                    userLocation = {
+                        latitude: position.coords.latitude,
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+
+                    statusDiv.innerHTML = '✅ Location Status: <span class="location-enabled">Active</span>';
+                    infoDiv.innerHTML = `
+                        <strong>Coordinates:</strong> ${userLocation.latitude.toFixed(6)}, ${userLocation.longitude.toFixed(6)}<br>
+                        <strong>Accuracy:</strong> ±${Math.round(userLocation.accuracy)}m
+                    `;
+
+                    try { await reverseGeocode(userLocation.latitude, userLocation.longitude); } catch (e) { console.log("Could not get address:", e); }
+                },
+                function(error) {
+                    let errorMsg = "";
+                    switch(error.code) {
+                        case error.PERMISSION_DENIED: errorMsg = "Location access denied by user."; break;
+                        case error.POSITION_UNAVAILABLE: errorMsg = "Location information unavailable."; break;
+                        case error.TIMEOUT: errorMsg = "Location request timed out."; break;
+                        default: errorMsg = "An unknown error occurred."; break;
+                    }
+                    statusDiv.innerHTML = '❌ Location Status: <span class="location-disabled">Failed</span>';
+                    infoDiv.textContent = errorMsg + " You can still upload image and/or voice without location.";
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+            );
+        }
+
+        async function reverseGeocode(lat, lon) {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
+                const data = await response.json();
+                if (data && data.display_name) {
+                    userAddress = data.display_name;
+                    const infoDiv = document.getElementById("locationInfo");
+                    infoDiv.innerHTML += `<br><strong>Address:</strong> ${userAddress}`;
+                }
+            } catch (error) { console.log("Reverse geocoding failed:", error); }
+        }
+
+        async function submitReport() {
+            const fileInput = document.getElementById("imageInput");
+            const transcript = document.getElementById("transcript").value.trim();
+            const analyzeBtn = document.getElementById("analyzeBtn");
+            const summaryDiv = document.getElementById("disasterSummary");
+            const detailsDiv = document.getElementById("detailedResults");
+            const locationDiv = document.getElementById("locationData");
+            const toggleBtn = document.getElementById("toggleBtn");
+
+            if (!fileInput.files.length && !recordedBlob && !transcript) {
+                alert("Please add at least an image or a voice description (or type some text).");
+                return;
+            }
+
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = "🔄 Analyzing...";
+            summaryDiv.innerHTML = '<div class="loading">🔍 Analyzing with image/voice + location...</div>';
+            detailsDiv.style.display = "none";
+            toggleBtn.style.display = "none";
+            locationDiv.style.display = "none";
+
+            const formData = new FormData();
+            if (fileInput.files.length) formData.append("file", fileInput.files[0]);
+            if (recordedBlob) formData.append("audio", recordedBlob, guessAudioFilename());
+            if (transcript) formData.append("voice_transcript", transcript);
+
+            if (userLocation) {
+                formData.append("latitude", userLocation.latitude);
+                formData.append("longitude", userLocation.longitude);
+                if (userAddress) formData.append("address", userAddress);
+            }
+
+            try {
+                const response = await fetch("/predict/", { method: "POST", body: formData });
+                const data = await response.json();
+
+                if (data.disaster_analysis) {
+                    displayDisasterSummary(data.disaster_analysis);
+                    displayLocationData(data.location_data);
+                    displayDetailedResults(data.detailed_predictions);
+                    if (data.voice && data.voice.transcript) {
+                        document.getElementById('transcript').value = data.voice.transcript;
+                    }
+                    toggleBtn.style.display = "inline-block";
+                } else if (data.error) {
+                    summaryDiv.innerHTML = `<div class="disaster-summary">❌ <strong>Error:</strong> ${data.error}</div>`;
+                } else {
+                    summaryDiv.innerHTML = `<div class="disaster-summary">❌ <strong>Unexpected response:</strong> ${JSON.stringify(data)}</div>`;
+                }
+            } catch (err) {
+                summaryDiv.innerHTML = `<div class="disaster-summary">❌ <strong>Network error:</strong> ${err}</div>`;
+            } finally {
+                analyzeBtn.disabled = false;
+                analyzeBtn.textContent = "🚀 Submit for Analysis";
+            }
+        }
+
+        function guessAudioFilename() {
+            // Helps server-side type detection
+            if (mediaRecorder && mediaRecorder.mimeType.includes('webm')) return 'report.webm';
+            if (mediaRecorder && mediaRecorder.mimeType.includes('mp4')) return 'report.m4a';
+            return 'report.wav';
+        }
+
+        function displayDisasterSummary(analysis) {
+            const summaryDiv = document.getElementById("disasterSummary");
+
+            const riskClass = analysis.risk_level === "high" ? "high-risk" :
+                              analysis.risk_level === "medium" ? "medium-risk" : "low-risk";
+            const riskEmoji = analysis.risk_level === "high" ? "🚨" :
+                              analysis.risk_level === "medium" ? "⚠️" : "✅";
+
+            let featuresHtml = "";
+            if (analysis.detected_features?.length > 0) {
+                featuresHtml = `
+                    <p><strong>Detected Features:</strong></p>
+                    <ul class="features">
+                        ${analysis.detected_features.map(feature => `<li>${feature}</li>`).join("")}
+                    </ul>
+                `;
+            }
+
+            const voiceInfo = analysis.voice_vote ? `<div><strong>Voice says:</strong> ${analysis.voice_vote.label} (${(analysis.voice_vote.score*100).toFixed(1)}%)</div>` : "";
+
+            summaryDiv.innerHTML = `
+                <div class="disaster-summary ${riskClass}">
+                    <div class="disaster-type">${riskEmoji} ${analysis.primary_disaster.toUpperCase()}</div>
+                    <div class="confidence">Confidence: ${(analysis.confidence * 100).toFixed(1)}%</div>
+                    <div><strong>Risk Level:</strong> ${analysis.risk_level.toUpperCase()}</div>
+                    ${voiceInfo}
+                    ${featuresHtml}
+                </div>
+            `;
+        }
+
+        function displayLocationData(locationData) {
+            const locationDiv = document.getElementById("locationData");
+            if (locationData?.latitude && locationData?.longitude) {
+                const timestamp = new Date(locationData.timestamp).toLocaleString();
+                locationDiv.innerHTML = `
+                    <div class="location-data">
+                        <h4>📍 Location Information</h4>
+                        <strong>Coordinates:</strong> ${locationData.latitude.toFixed(6)}, ${locationData.longitude.toFixed(6)}<br>
+                        <strong>Address:</strong> ${locationData.address || "Address not available"}<br>
+                        <strong>Timestamp:</strong> ${timestamp}<br>
+                        <strong>Google Maps:</strong> <a href="https://maps.google.com/?q=${locationData.latitude},${locationData.longitude}" target="_blank">View on Map</a>
+                    </div>
+                `;
+                locationDiv.style.display = "block";
+            }
+        }
+
+        function displayDetailedResults(predictions) {
+            const detailsDiv = document.getElementById("detailedResults");
+            let output = "DETAILED MODEL PREDICTIONS:\n";
+            output += "=============================\n\n";
+            for (const [modelType, results] of Object.entries(predictions || {})) {
+                output += `${modelType.toUpperCase().replace(/_/g, ' ')}:\n`;
+                output += "-".repeat(modelType.length + 1) + "\n";
+                if (!Array.isArray(results)) { output += "(no results)\n\n"; continue; }
+                if (results.some(r => r.error)) { output += `Error: ${results.find(r => r.error).error}\n\n`; continue; }
+                results.slice(0, 5).forEach(pred => {
+                    const percentage = (pred.score * 100).toFixed(1);
+                    output += `${pred.label}: ${percentage}%\n`;
+                });
+                output += "\n";
+            }
+            detailsDiv.innerText = output;
+        }
+
+        function toggleDetails() {
+            const detailsDiv = document.getElementById("detailedResults");
+            const toggleBtn = document.getElementById("toggleBtn");
+            showingDetails = !showingDetails;
+            detailsDiv.style.display = showingDetails ? "block" : "none";
+            toggleBtn.textContent = showingDetails ? "Hide Detailed Results" : "Show Detailed Results";
+        }
+    </script>
+</body>
+</html>
