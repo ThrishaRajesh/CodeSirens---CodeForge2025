@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Micro-Task Generator - Smart Resource Allocation</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #ff6b6b, #4ecdc4);
+            background-clip: text;
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+            font-size: 0.9rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #2563eb;
+        }
+
+        .stat-label {
+            color: #64748b;
+            margin-top: 2px;
+        }
+
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 30px 20px;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 30px;
+            height: calc(100vh - 120px);
+        }
+
+        .control-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 25px;
+            height: fit-content;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .panel-section {
+            margin-bottom: 25px;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #ffecd2, #fcb69f);
+            color: #8b4513;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(252, 182, 159, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ff8a80, #ff5722);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 138, 128, 0.3);
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #374151;
+            font-size: 0.9rem;
+        }
+
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .map-container {
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        #map {
+            height: 100%;
+            min-height: 600px;
+        }
+
+        .legend {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .legend-icon {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .volunteer-icon { background: #3b82f6; }
+        .task-icon { background: #ef4444; }
+        .microtask-icon { background: #f59e0b; }
+        .assignment-line { 
+            width: 20px; 
+            height: 3px; 
+            background: #10b981; 
+            border-radius: 2px; 
+        }
+
+        .allocation-summary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .summary-value {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .status-message {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            display: none;
+        }
+
+        .status-success {
+            background: rgba(34, 197, 94, 0.1);
+            color: #16a34a;
+            border: 1px solid rgba(34, 197, 94, 0.2);
+        }
+
+        .status-info {
+            background: rgba(59, 130, 246, 0.1);
+            color: #2563eb;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .control-panel {
+                order: 2;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-content">
+            <div class="logo">
+                <h1> AI Micro-Task Generator</h1>
+                <div style="font-size: 0.9rem; color: #64748b; margin-top: 4px;">
+                    Smart Resource Allocation & Volunteer Optimization
+                </div>
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-number" id="totalVolunteers">0</div>
+                    <div class="stat-label">Volunteers</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="totalTasks">0</div>
+                    <div class="stat-label">Tasks</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="totalMicroTasks">0</div>
+                    <div class="stat-label">Micro-Tasks</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-number" id="efficiency">0%</div>
+                    <div class="stat-label">Efficiency</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="control-panel">
+            <div class="status-message" id="statusMessage"></div>
+            
+            <div class="legend">
+                <div class="panel-title"> Map Legend</div>
+                <div class="legend-item">
+                    <div class="legend-icon volunteer-icon"></div>
+                    <span>Volunteers</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon task-icon"></div>
+                    <span>Original Tasks</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-icon microtask-icon"></div>
+                    <span>Micro-Tasks</span>
+                </div>
+                <div class="legend-item">
+                    <div class="assignment-line"></div>
+                    <span>Assignments</span>
+                </div>
+            </div>
+
+            <div class="allocation-summary" id="allocationSummary">
+                <div class="panel-title"> Allocation Summary</div>
+                <div class="summary-item">
+                    <span>Active Volunteers:</span>
+                    <span class="summary-value" id="activeVolunteers">0</span>
+                </div>
+                <div class="summary-item">
+                    <span>Completed Assignments:</span>
+                    <span class="summary-value" id="completedAssignments">0</span>
+                </div>
+                <div class="summary-item">
+                    <span>Avg Distance:</span>
+                    <span class="summary-value" id="avgDistance">0 km</span>
+                </div>
+                <div class="summary-item">
+                    <span>Resource Utilization:</span>
+                    <span class="summary-value" id="resourceUtilization">0%</span>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title"> Simulation Controls</div>
+                
+                <div class="input-group">
+                    <label>Number of Volunteers</label>
+                    <input type="number" id="volunteerCount" value="15" min="5" max="50">
+                </div>
+                
+                <div class="input-group">
+                    <label>Number of Large Tasks</label>
+                    <input type="number" id="taskCount" value="8" min="3" max="20">
+                </div>
+                
+                <div class="input-group">
+                    <label>Task Complexity</label>
+                    <select id="taskComplexity">
+                        <option value="low">Low (2-4 micro-tasks)</option>
+                        <option value="medium" selected>Medium (3-6 micro-tasks)</option>
+                        <option value="high">High (5-8 micro-tasks)</option>
+                    </select>
+                </div>
+                
+                <button class="btn btn-primary" onclick="generateScenario()">
+                     Generate New Scenario
+                </button>
+            </div>
+
+            <div class="panel-section">
+                <div class="panel-title">AI Allocation</div>
+                
+                <button class="btn btn-secondary" onclick="runOptimalAllocation()">
+                     Run Optimal Allocation
+                </button>
+                
+                <button class="btn btn-secondary" onclick="runGreedyAllocation()">
+                     Run Greedy Allocation
+                </button>
+                
+                <button class="btn btn-danger" onclick="clearMap()">
+                     Clear All
+                </button>
+            </div>
+
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <div>Processing allocation...</div>
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script>
+        // Global variables
+        let map;
+        let volunteers = [];
+        let originalTasks = [];
+        let microTasks = [];
+        let assignments = [];
+        let mapLayers = {
+            volunteers: L.layerGroup(),
+            tasks: L.layerGroup(),
+            microTasks: L.layerGroup(),
+            assignments: L.layerGroup()
+        };
+
+        // Initialize map
+function initMap() {
+    map = L.map('map').setView(disasterCenter, 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    // Add layer groups to map
+    Object.values(mapLayers).forEach(layer => layer.addTo(map));
+
+    // Try to locate the user
+    if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(
+            function (position) {
+                const lat = position.coords.latitude;
+                const lon = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+
+                // Center map on user location first time
+                map.setView([lat, lon], 14);
+
+                // If marker exists, update it
+                if (!mapLayers.userLocation) {
+                    mapLayers.userLocation = L.layerGroup().addTo(map);
+                }
+                mapLayers.userLocation.clearLayers();
+
+                // Add user marker
+                const userMarker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        html: `<div style="background:#2563eb;border:2px solid white;border-radius:50%;width:16px;height:16px;box-shadow:0 0 6px rgba(0,0,0,0.5);"></div>`,
+                        iconSize: [16, 16],
+                        iconAnchor: [8, 8]
+                    })
+                }).bindPopup("You are here");
+                mapLayers.userLocation.addLayer(userMarker);
+
+                // Add accuracy circle
+                const circle = L.circle([lat, lon], { radius: accuracy, color: "#2563eb", fillOpacity: 0.15 });
+                mapLayers.userLocation.addLayer(circle);
+            },
+            function () {
+                alert("Could not get your location. Showing default Bengaluru.");
+            },
+            { enableHighAccuracy: true }
+        );
+    } else {
+        alert("Geolocation is not supported by this browser.");
+    }
+}
+
+
+        // Disaster center coordinates (Bengaluru)
+        const disasterCenter = [12.9716, 77.5946];
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView(disasterCenter, 12);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Add layer groups to map
+            Object.values(mapLayers).forEach(layer => layer.addTo(map));
+        }
+
+        // Utility function to calculate distance between two points
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Generate random volunteers around disaster area
+        function generateVolunteers(count) {
+            volunteers = [];
+            for (let i = 1; i <= count; i++) {
+                const radius = Math.random() * 0.3; // Within 30km radius
+                const angle = Math.random() * 2 * Math.PI;
+                const lat = disasterCenter[0] + radius * Math.cos(angle) * 0.01;
+                const lon = disasterCenter[1] + radius * Math.sin(angle) * 0.01;
+                
+                volunteers.push({
+                    id: `V${i}`,
+                    name: `Volunteer ${i}`,
+                    lat: parseFloat(lat.toFixed(6)),
+                    lon: parseFloat(lon.toFixed(6)),
+                    capacity: Math.floor(Math.random() * 3) + 1,
+                    originalCapacity: Math.floor(Math.random() * 3) + 1,
+                    skills: ['medical', 'transport', 'supplies', 'rescue'][Math.floor(Math.random() * 4)]
+                });
+            }
+        }
+
+        // Generate large tasks that need to be divided
+        function generateTasks(count) {
+            originalTasks = [];
+            for (let i = 1; i <= count; i++) {
+                const radius = Math.random() * 0.2; // Within disaster area
+                const angle = Math.random() * 2 * Math.PI;
+                const lat = disasterCenter[0] + radius * Math.cos(angle) * 0.01;
+                const lon = disasterCenter[1] + radius * Math.sin(angle) * 0.01;
+                
+                const complexity = document.getElementById('taskComplexity').value;
+                let microTaskCount;
+                switch(complexity) {
+                    case 'low': microTaskCount = Math.floor(Math.random() * 3) + 2; break;
+                    case 'medium': microTaskCount = Math.floor(Math.random() * 4) + 3; break;
+                    case 'high': microTaskCount = Math.floor(Math.random() * 4) + 5; break;
+                }
+                
+                originalTasks.push({
+                    id: `T${i}`,
+                    lat: parseFloat(lat.toFixed(6)),
+                    lon: parseFloat(lon.toFixed(6)),
+                    size: microTaskCount * 2,
+                    priority: Math.floor(Math.random() * 5) + 1,
+                    type: ['medical', 'rescue', 'supplies', 'evacuation'][Math.floor(Math.random() * 4)],
+                    microTaskCount: microTaskCount
+                });
+            }
+        }
+
+        // Break large tasks into micro-tasks
+        function generateMicroTasks() {
+            microTasks = [];
+            let microTaskId = 1;
+            
+            originalTasks.forEach(task => {
+                for (let i = 0; i < task.microTaskCount; i++) {
+                    // Micro-tasks are distributed around the original task location
+                    const offsetLat = (Math.random() - 0.5) * 0.01;
+                    const offsetLon = (Math.random() - 0.5) * 0.01;
+                    
+                    microTasks.push({
+                        id: `MT${microTaskId++}`,
+                        parentTaskId: task.id,
+                        lat: parseFloat((task.lat + offsetLat).toFixed(6)),
+                        lon: parseFloat((task.lon + offsetLon).toFixed(6)),
+                        size: 1,
+                        priority: task.priority + Math.floor(Math.random() * 2) - 1,
+                        type: task.type,
+                        estimatedTime: Math.floor(Math.random() * 60) + 15, // 15-75 minutes
+                        requiredSkill: task.type
+                    });
+                }
+            });
+        }
+
+        // Optimal allocation algorithm (Hungarian-like approach simplified)
+        function runOptimalAllocation() {
+            showLoading(true);
+            assignments = [];
+            
+            setTimeout(() => {
+                // Reset volunteer capacities
+                volunteers.forEach(vol => vol.capacity = vol.originalCapacity);
+                
+                // Sort micro-tasks by priority (highest first)
+                const sortedMicroTasks = [...microTasks].sort((a, b) => b.priority - a.priority);
+                
+                sortedMicroTasks.forEach(task => {
+                    // Find best volunteer considering distance, capacity, and skill match
+                    let bestVolunteer = null;
+                    let bestScore = -1;
+                    
+                    volunteers.forEach(volunteer => {
+                        if (volunteer.capacity > 0) {
+                            const distance = calculateDistance(
+                                task.lat, task.lon, 
+                                volunteer.lat, volunteer.lon
+                            );
+                            
+                            // Scoring: closer distance + skill match bonus
+                            let score = 1 / (distance + 0.1); // Avoid division by zero
+                            if (volunteer.skills === task.requiredSkill) {
+                                score *= 1.5; // Skill match bonus
+                            }
+                            
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestVolunteer = volunteer;
+                            }
+                        }
+                    });
+                    
+                    if (bestVolunteer) {
+                        assignments.push({
+                            taskId: task.id,
+                            volunteerId: bestVolunteer.id,
+                            distance: calculateDistance(
+                                task.lat, task.lon,
+                                bestVolunteer.lat, bestVolunteer.lon
+                            ),
+                            skillMatch: bestVolunteer.skills === task.requiredSkill
+                        });
+                        bestVolunteer.capacity--;
+                    }
+                });
+                
+                visualizeAssignments();
+                updateStatistics();
+                showStatus('Optimal allocation completed! Tasks assigned based on proximity, capacity, and skill matching.', 'success');
+                showLoading(false);
+            }, 1500);
+        }
+
+        // Greedy allocation (nearest first)
+        function runGreedyAllocation() {
+            showLoading(true);
+            assignments = [];
+            
+            setTimeout(() => {
+                // Reset volunteer capacities
+                volunteers.forEach(vol => vol.capacity = vol.originalCapacity);
+                
+                microTasks.forEach(task => {
+                    let nearestVolunteer = null;
+                    let minDistance = Infinity;
+                    
+                    volunteers.forEach(volunteer => {
+                        if (volunteer.capacity > 0) {
+                            const distance = calculateDistance(
+                                task.lat, task.lon,
+                                volunteer.lat, volunteer.lon
+                            );
+                            
+                            if (distance < minDistance) {
+                                minDistance = distance;
+                                nearestVolunteer = volunteer;
+                            }
+                        }
+                    });
+                    
+                    if (nearestVolunteer) {
+                        assignments.push({
+                            taskId: task.id,
+                            volunteerId: nearestVolunteer.id,
+                            distance: minDistance,
+                            skillMatch: nearestVolunteer.skills === task.requiredSkill
+                        });
+                        nearestVolunteer.capacity--;
+                    }
+                });
+                
+                visualizeAssignments();
+                updateStatistics();
+                showStatus('Greedy allocation completed! Tasks assigned to nearest available volunteers.', 'info');
+                showLoading(false);
+            }, 1000);
+        }
+
+        // Visualize all elements on map
+        function visualizeMap() {
+            clearMapLayers();
+            
+            // Add volunteers
+            volunteers.forEach(volunteer => {
+                const icon = L.divIcon({
+                    html: `<div style="background: #3b82f6; border: 2px solid white; border-radius: 50%; width: 14px; height: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    iconSize: [14, 14],
+                    iconAnchor: [7, 7]
+                });
+                
+                const marker = L.marker([volunteer.lat, volunteer.lon], { icon })
+                    .bindPopup(`
+                        <strong>${volunteer.name}</strong><br>
+                        Capacity: ${volunteer.capacity}/${volunteer.originalCapacity}<br>
+                        Skills: ${volunteer.skills}
+                    `);
+                mapLayers.volunteers.addLayer(marker);
+            });
+            
+            // Add original tasks
+            originalTasks.forEach(task => {
+                const icon = L.divIcon({
+                    html: `<div style="background: #ef4444; border: 2px solid white; border-radius: 50%; width: 16px; height: 16px; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+                
+                const marker = L.marker([task.lat, task.lon], { icon })
+                    .bindPopup(`
+                        <strong>Task ${task.id}</strong><br>
+                        Type: ${task.type}<br>
+                        Priority: ${task.priority}<br>
+                        Micro-tasks: ${task.microTaskCount}
+                    `);
+                mapLayers.tasks.addLayer(marker);
+            });
+            
+            // Add micro-tasks
+            microTasks.forEach(task => {
+                const icon = L.divIcon({
+                    html: `<div style="background: #f59e0b; border: 1px solid white; border-radius: 50%; width: 10px; height: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.3);"></div>`,
+                    iconSize: [10, 10],
+                    iconAnchor: [5, 5]
+                });
+                
+                const marker = L.marker([task.lat, task.lon], { icon })
+                    .bindPopup(`
+                        <strong>Micro-Task ${task.id}</strong><br>
+                        Parent: ${task.parentTaskId}<br>
+                        Type: ${task.type}<br>
+                        Priority: ${task.priority}<br>
+                        Est. Time: ${task.estimatedTime}min
+                    `);
+                mapLayers.microTasks.addLayer(marker);
+            });
+        }
+
+        // Visualize assignments
+        function visualizeAssignments() {
+            mapLayers.assignments.clearLayers();
+            
+            assignments.forEach(assignment => {
+                const task = microTasks.find(t => t.id === assignment.taskId);
+                const volunteer = volunteers.find(v => v.id === assignment.volunteerId);
+                
+                if (task && volunteer) {
+                    const line = L.polyline(
+                        [[volunteer.lat, volunteer.lon], [task.lat, task.lon]],
+                        { 
+                            color: assignment.skillMatch ? '#10b981' : '#6b7280',
+                            weight: assignment.skillMatch ? 3 : 2,
+                            opacity: 0.7
+                        }
+                    ).bindPopup(`
+                        ${volunteer.name} → Micro-Task ${task.id}<br>
+                        Distance: ${assignment.distance.toFixed(2)} km<br>
+                        Skill Match: ${assignment.skillMatch ? 'Yes' : 'No'}
+                    `);
+                    mapLayers.assignments.addLayer(line);
+                }
+            });
+        }
+
+        // Clear map layers
+        function clearMapLayers() {
+            Object.values(mapLayers).forEach(layer => layer.clearLayers());
+        }
+
+        // Update statistics
+        function updateStatistics() {
+            document.getElementById('totalVolunteers').textContent = volunteers.length;
+            document.getElementById('totalTasks').textContent = originalTasks.length;
+            document.getElementById('totalMicroTasks').textContent = microTasks.length;
+            
+            const activeVolunteers = volunteers.filter(v => v.capacity < v.originalCapacity).length;
+            document.getElementById('activeVolunteers').textContent = activeVolunteers;
+            document.getElementById('completedAssignments').textContent = assignments.length;
+            
+            if (assignments.length > 0) {
+                const avgDistance = assignments.reduce((sum, a) => sum + a.distance, 0) / assignments.length;
+                document.getElementById('avgDistance').textContent = avgDistance.toFixed(2) + ' km';
+                
+                const totalCapacity = volunteers.reduce((sum, v) => sum + v.originalCapacity, 0);
+                const usedCapacity = assignments.length;
+                const utilization = Math.round((usedCapacity / totalCapacity) * 100);
+                document.getElementById('resourceUtilization').textContent = utilization + '%';
+                
+                const efficiency = Math.round((assignments.length / microTasks.length) * 100);
+                document.getElementById('efficiency').textContent = efficiency + '%';
+            } else {
+                document.getElementById('avgDistance').textContent = '0 km';
+                document.getElementById('resourceUtilization').textContent = '0%';
+                document.getElementById('efficiency').textContent = '0%';
+            }
+        }
+
+        // Generate new scenario
+        function generateScenario() {
+            showLoading(true);
+            
+            setTimeout(() => {
+                const volunteerCount = parseInt(document.getElementById('volunteerCount').value);
+                const taskCount = parseInt(document.getElementById('taskCount').value);
+                
+                generateVolunteers(volunteerCount);
+                generateTasks(taskCount);
+                generateMicroTasks();
+                
+                assignments = [];
+                visualizeMap();
+                updateStatistics();
+                
+                showStatus('New scenario generated! Large tasks have been broken down into micro-tasks.', 'success');
+                showLoading(false);
+            }, 800);
+        }
+
+        // Clear everything
+        function clearMap() {
+            volunteers = [];
+            originalTasks = [];
+            microTasks = [];
+            assignments = [];
+            clearMapLayers();
+            updateStatistics();
+            showStatus('All data cleared.', 'info');
+        }
+
+        // Show/hide loading
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.className = `status-message status-${type}`;
+            statusEl.textContent = message;
+            statusEl.style.display = 'block';
+            
+            setTimeout(() => {
+                statusEl.style.display = 'none';
+            }, 5000);
+        }
+
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', function() {
+            initMap();
+            generateScenario();
+        });
+
+        
+    </script>
+</body>
+</html>
