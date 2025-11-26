@@ -1,49 +1,24 @@
-/**
- * risk_predictor.cjs
- *
- * Responsibilities:
- *  - Subscribe to sensors/{nodeId} and volunteers/{id}/gps & /vector
- *  - Maintain a 2D risk grid (rows x cols)
- *  - Aggregate sensor inputs into normalized risk per cell (exp smoothing)
- *  - Publish:
- *      - risk/grid        (live cell-by-cell risk)
- *      - risk/forecast    (predicted risk grids for next N steps)
- *      - viz/vol_flow     (aggregated volunteer vectors per cell)
- *      - risk/zone        (convex hull + centroid when cluster detected)
- *      - routes/{requestId} (safe path for evac when routes/request received)
- *
- * Run:
- *   node risk_predictor.cjs
- *
- * Notes:
- *  - Designed to integrate with sensor_sim.js and volunteer_sim.js provided earlier.
- *  - Coordinates default to Assam center used previously; override via env if needed.
- */
-
 const mqtt = require("mqtt");
 const BROKER = process.env.MQTT_BROKER || "mqtt://localhost:1883";
 const client = mqtt.connect(BROKER);
 
-/* ------------------ CONFIG ------------------ */
 const CENTER = {
   lat: parseFloat(process.env.CENTER_LAT || "26.2006"),
   lon: parseFloat(process.env.CENTER_LON || "92.9376")
 };
 const ROWS = parseInt(process.env.GRID_ROWS || "40", 10);
 const COLS = parseInt(process.env.GRID_COLS || "40", 10);
-const LAT_SPAN = parseFloat(process.env.LAT_SPAN || "0.12"); // degrees approx ~13km
-const LON_SPAN = parseFloat(process.env.LON_SPAN || "0.12"); // degrees
+const LAT_SPAN = parseFloat(process.env.LAT_SPAN || "0.12"); 
+const LON_SPAN = parseFloat(process.env.LON_SPAN || "0.12"); 
 const PUBLISH_INTERVAL_MS = parseInt(process.env.PUBLISH_MS || "1000", 10);
 const FORECAST_STEPS = parseInt(process.env.FORECAST_STEPS || "3", 10);
 const DIFF_COEFF = parseFloat(process.env.DIFF_COEFF || "0.25");
 const DECAY = parseFloat(process.env.DECAY || "0.92");
-const SMOOTH_ALPHA = parseFloat(process.env.SMOOTH_ALPHA || "0.6"); // for sensor smoothing
-const RISK_THRESHOLD_ZONE = parseFloat(process.env.RISK_ZONE_THRESHOLD || "0.6"); // cell risk to consider
+const SMOOTH_ALPHA = parseFloat(process.env.SMOOTH_ALPHA || "0.6"); 
+const RISK_THRESHOLD_ZONE = parseFloat(process.env.RISK_ZONE_THRESHOLD || "0.6");
 const MIN_ZONE_CELLS = parseInt(process.env.MIN_ZONE_CELLS || "4", 10);
-const ROUTE_RISK_WEIGHT = parseFloat(process.env.ROUTE_RISK_WEIGHT || "9.0"); // cost multiplier
-/* -------------------------------------------- */
+const ROUTE_RISK_WEIGHT = parseFloat(process.env.ROUTE_RISK_WEIGHT || "9.0");
 
-/* Grid bounds */
 const minLat = CENTER.lat - LAT_SPAN / 2;
 const maxLat = CENTER.lat + LAT_SPAN / 2;
 const minLon = CENTER.lon - LON_SPAN / 2;
@@ -51,14 +26,12 @@ const maxLon = CENTER.lon + LON_SPAN / 2;
 const latStep = (maxLat - minLat) / ROWS;
 const lonStep = (maxLon - minLon) / COLS;
 
-/* Risk grid and support state */
 let riskGrid = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-let sensorLastSeen = {}; // track last incoming sensor for debug
-let volunteerHist = {}; // volunteerId -> [{lat,lon,ts}, ...] small history
+let sensorLastSeen = {}; 
+let volunteerHist = {};
 let volunteerCellVectors = Array.from({ length: ROWS }, () => Array.from({ length: COLS }, () => ({ vx: 0, vy: 0, count: 0 })));
 
-/* Buffer of recent high-risk cell events for zone detection */
-let highRiskBuffer = []; // [{i,j,lat,lon,risk,ts,detail}, ...]
+let highRiskBuffer = []; 
 const HIGH_RISK_BUFFER_MAX = 500;
 
 /* MQTT topics to subscribe */
@@ -67,7 +40,6 @@ const VOL_GPS_TOPIC = "volunteers/+/gps";
 const VOL_VEC_TOPIC = "volunteers/+/vector";
 const ROUTE_REQUEST_TOPIC = "routes/request";
 
-/* Utility: lat/lon <-> grid cell */
 function latLonToCell(lat, lon) {
   let i = Math.floor((lat - minLat) / latStep);
   let j = Math.floor((lon - minLon) / lonStep);
@@ -83,24 +55,20 @@ function cellCenter(i, j) {
   return { lat, lon };
 }
 
-/* Normalize helpers (sensor-specific) */
 function normalizeSensorValue(type, value) {
-  if (type === "rain") return Math.min(1, value / 100); // mm/hr
-  if (type === "water") return Math.min(1, value / 3);   // meters
-  if (type === "tremor") return Math.min(1, value / 1);  // magnitude scaled (demo)
+  if (type === "rain") return Math.min(1, value / 100); 
+  if (type === "water") return Math.min(1, value / 3);   
+  if (type === "tremor") return Math.min(1, value / 1);  
   if (type === "sos") return 1.0;
-  // fallback: scale
   return Math.min(1, value / 100);
 }
 
-/* Exponential smoothing update for cell risk */
 function updateCellRisk(i, j, obsNorm, alpha = SMOOTH_ALPHA) {
   const prev = riskGrid[i][j] || 0;
   const next = alpha * obsNorm + (1 - alpha) * prev;
   riskGrid[i][j] = Math.min(1, Math.max(0, next));
 }
 
-/* Diffusion predictor (one step) */
 function predictNextGrid(grid, diffCoeff = DIFF_COEFF, decay = DECAY) {
   const rows = grid.length;
   const cols = grid[0].length;
@@ -127,7 +95,6 @@ function predictNextGrid(grid, diffCoeff = DIFF_COEFF, decay = DECAY) {
   return next;
 }
 
-/* Convex hull for polygon generation (Andrew's monotone chain) */
 function convexHull(points) {
   if (!points || points.length < 3) return points.slice();
   points.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -148,7 +115,6 @@ function convexHull(points) {
   return lower.concat(upper);
 }
 
-/* A* pathfinding on grid with risk-weighted cost */
 function astar(startCell, goalCell, gridRisk, weight = ROUTE_RISK_WEIGHT) {
   const rows = gridRisk.length, cols = gridRisk[0].length;
   function inBounds(i, j) { return i >= 0 && i < rows && j >= 0 && j < cols; }
@@ -175,7 +141,7 @@ function astar(startCell, goalCell, gridRisk, weight = ROUTE_RISK_WEIGHT) {
     return res;
   };
 
-  const openSet = new Map(); // key -> {f, g, parent}
+  const openSet = new Map(); 
   const pq = new MinHeap();
   const startKey = openKey(start.i, start.j);
   const startRisk = gridRisk[start.i][start.j];
@@ -189,7 +155,7 @@ function astar(startCell, goalCell, gridRisk, weight = ROUTE_RISK_WEIGHT) {
     if (!cur) continue;
     const [ci, cj] = key.split(",").map(Number);
     if (ci === goal.i && cj === goal.j) {
-      // reconstruct
+
       const path = [];
       let curKey = key;
       while (curKey) {
@@ -201,7 +167,7 @@ function astar(startCell, goalCell, gridRisk, weight = ROUTE_RISK_WEIGHT) {
       path.reverse();
       return path;
     }
-    // expand neighbors
+
     for (const nb of neighbors({ i: ci, j: cj })) {
       const nKey = openKey(nb.i, nb.j);
       const risk = gridRisk[nb.i][nb.j];
@@ -215,15 +181,15 @@ function astar(startCell, goalCell, gridRisk, weight = ROUTE_RISK_WEIGHT) {
         pq.push({ key: nKey, f, i: nb.i, j: nb.j, g: tentativeG });
       }
     }
-    // mark closed by deleting (we keep from openSet only)
+ 
     openSet.delete(key);
   }
 
-  // no path
+
   return null;
 }
 
-/* Simple binary heap (min by f) */
+
 class MinHeap {
   constructor() { this.arr = []; }
   push(x) { this.arr.push(x); this._siftUp(this.arr.length - 1); }
@@ -257,11 +223,10 @@ class MinHeap {
   }
 }
 
-/* Handle incoming sensor messages */
+
 function handleSensorMessage(topic, msg) {
   try {
     const payload = JSON.parse(msg.toString());
-    // expected: { nodeId, ts, lat, lon, type, value, valueNorm }
     const lat = Number(payload.lat);
     const lon = Number(payload.lon);
     const type = payload.type || (payload.rainfall ? "rain" : (payload.water ? "water" : "unknown"));
@@ -271,10 +236,9 @@ function handleSensorMessage(topic, msg) {
     const { i, j } = latLonToCell(lat, lon);
     updateCellRisk(i, j, norm, SMOOTH_ALPHA);
 
-    // Save last seen
+
     sensorLastSeen[payload.nodeId || `${i}_${j}`] = { ts: payload.ts || Date.now(), type, value: rawVal, norm, lat, lon };
 
-    // If very high, add to high risk buffer for zone detection
     if (norm >= RISK_THRESHOLD_ZONE) {
       const center = cellCenter(i,j);
       highRiskBuffer.push({ i, j, lat: center.lat, lon: center.lon, risk: norm, ts: Date.now(), detail: { type, rawVal } });
@@ -285,7 +249,6 @@ function handleSensorMessage(topic, msg) {
   }
 }
 
-/* Handle incoming volunteer gps and vector messages */
 function handleVolunteerGps(topic, msg) {
   try {
     const payload = JSON.parse(msg.toString());
@@ -294,10 +257,9 @@ function handleVolunteerGps(topic, msg) {
     const lat = Number(payload.lat), lon = Number(payload.lon), ts = payload.timestamp || payload.ts || Date.now();
     volunteerHist[vid] = volunteerHist[vid] || [];
     volunteerHist[vid].push({ lat, lon, ts });
-    // keep only last 5 samples
+
     if (volunteerHist[vid].length > 5) volunteerHist[vid].shift();
 
-    // update vector aggregation: compute cell and store small vector from history if possible
     if (volunteerHist[vid].length >= 2) {
       const a = volunteerHist[vid][volunteerHist[vid].length - 2];
       const b = volunteerHist[vid][volunteerHist[vid].length - 1];
@@ -315,11 +277,10 @@ function handleVolunteerGps(topic, msg) {
 }
 
 function handleVolunteerVector(topic, msg) {
-  // expects: { id, dx, dy, speed, magnitude, timestamp }
   try {
     const payload = JSON.parse(msg.toString());
     const latLon = volunteerHist[payload.id] && volunteerHist[payload.id].slice(-1)[0];
-    if (!latLon) return; // need at least one gps sample
+    if (!latLon) return; 
     const { lat, lon } = latLon;
     const { i, j } = latLonToCell(lat, lon);
     const cellVec = volunteerCellVectors[i][j];
@@ -331,7 +292,6 @@ function handleVolunteerVector(topic, msg) {
   }
 }
 
-/* Publish current risk grid as an array of cells */
 function publishRiskGrid() {
   const cells = [];
   for (let i = 0; i < ROWS; i++) {
@@ -343,7 +303,6 @@ function publishRiskGrid() {
   client.publish("risk/grid", JSON.stringify({ gridId: "g1", ts: Date.now(), rows: ROWS, cols: COLS, cells }));
 }
 
-/* Publish volunteer flow vectors aggregated per cell */
 function publishVolFlow() {
   const cells = [];
   for (let i = 0; i < ROWS; i++) {
@@ -356,17 +315,14 @@ function publishVolFlow() {
         const c = cellCenter(i, j);
         cells.push({ i, j, lat: c.lat, lon: c.lon, vx: Number(avgVx.toFixed(6)), vy: Number(avgVy.toFixed(6)), magnitude: Number(mag.toFixed(6)), count: vec.count });
       }
-      // reset per publish to have rolling aggregation
       volunteerCellVectors[i][j] = { vx: 0, vy: 0, count: 0 };
     }
   }
   client.publish("viz/vol_flow", JSON.stringify({ ts: Date.now(), cells }));
 }
 
-/* Detect contiguous high-risk clusters and publish risk/zone */
 function detectAndPublishZones() {
   if (!highRiskBuffer.length) return;
-  // group high-risk buffer by cell and find clusters
   const mapKey = (it) => `${it.i},${it.j}`;
   const cellMap = new Map();
   for (const e of highRiskBuffer) {
@@ -380,7 +336,7 @@ function detectAndPublishZones() {
   const entries = Array.from(cellMap.values()).filter(e => e.risk >= RISK_THRESHOLD_ZONE);
   if (entries.length < MIN_ZONE_CELLS) return;
 
-  // cluster cells by adjacency (simple connected components on grid)
+
   const visited = new Set();
   const clusters = [];
   function cellNeighbors(i, j) {
@@ -398,7 +354,7 @@ function detectAndPublishZones() {
   for (const e of entries) {
     const rootKey = `${e.i},${e.j}`;
     if (visited.has(rootKey)) continue;
-    // BFS
+  
     const q = [e];
     const comp = [];
     visited.add(rootKey);
@@ -417,15 +373,13 @@ function detectAndPublishZones() {
     clusters.push(comp);
   }
 
-  // For each cluster, build hull + centroid + publish if large enough
   for (const cluster of clusters) {
     if (cluster.length < MIN_ZONE_CELLS) continue;
     const pts = cluster.map(c => [c.lat, c.lon]);
     const hull = convexHull(pts);
-    // centroid of hull polygon (simple average)
+
     const centroid = hull.reduce((acc, p) => [acc[0] + p[0], acc[1] + p[1]], [0, 0]).map(x => x / hull.length);
     const centroidObj = { lat: Number(centroid[0].toFixed(6)), lon: Number(centroid[1].toFixed(6)) };
-    // risk detail: take max risk & aggregate types
     const maxRisk = Math.max(...cluster.map(c => c.risk));
     const hazards = [...new Set(cluster.flatMap(c => c.details.flatMap(d => d && d.type ? [d.type] : [])))];
     const payload = {
@@ -435,21 +389,17 @@ function detectAndPublishZones() {
       riskDetail: { total: Number(maxRisk.toFixed(4)), hazards }
     };
     client.publish("risk/zone", JSON.stringify(payload));
-    // also reduce buffer a bit to avoid repeated firing — keep recent items only
-    highRiskBuffer = highRiskBuffer.filter(h => Date.now() - h.ts < 1000 * 60 * 10); // keep last 10 min
+
+    highRiskBuffer = highRiskBuffer.filter(h => Date.now() - h.ts < 1000 * 60 * 10); 
   }
 }
 
-/* Listen to routes/request and compute safe route using A* */
 function handleRouteRequest(topic, msg) {
   try {
     const req = JSON.parse(msg.toString());
-    // expect: { requestId, zoneId, ts, origin:{lat,lon}, reason }
     const origin = req.origin || req.originPoint || req.originLatLon;
-    // For demo, set goal as nearest low-risk cell on grid edge (escape)
     const start = latLonToCell(origin.lat, origin.lon);
 
-    // find candidate goal cells: grid border cells with low risk
     const candidates = [];
     for (let i = 0; i < ROWS; i++) {
       for (let j = 0; j < COLS; j++) {
@@ -458,17 +408,17 @@ function handleRouteRequest(topic, msg) {
         }
       }
     }
-    candidates.sort((a, b) => a.risk - b.risk); // prefer lowest risk
+    candidates.sort((a, b) => a.risk - b.risk); 
     let path = null;
-    for (const cand of candidates.slice(0, 10)) { // try top 10 low-risk border cells
+    for (const cand of candidates.slice(0, 10)) { 
       path = astar(start, { i: cand.i, j: cand.j }, riskGrid, ROUTE_RISK_WEIGHT);
       if (path && path.length) break;
     }
     if (!path) {
-      // fallback: straight-line grid march to nearest border
+ 
       path = simpleStraightPathToEdge(start);
     }
-    // Convert path cells to lat/lon waypoints
+   
     const waypoints = path.map(cell => {
       const c = cellCenter(cell.i, cell.j);
       return { lat: Number(c.lat.toFixed(6)), lon: Number(c.lon.toFixed(6)), i: cell.i, j: cell.j };
@@ -481,7 +431,7 @@ function handleRouteRequest(topic, msg) {
   }
 }
 
-/* fallback simple straight path: greedy step towards nearest border */
+
 function simpleStraightPathToEdge(start) {
   const { i, j } = start;
   const path = [{ i, j }];
@@ -497,17 +447,14 @@ function simpleStraightPathToEdge(start) {
   return path;
 }
 
-/* Periodic publisher: publish grid, forecast, vol_flow, zone detection */
+
 function periodicPublish() {
-  // publish live grid
   publishRiskGrid();
 
-  // forecast
   let forecastGrid = JSON.parse(JSON.stringify(riskGrid));
   const forecasts = [];
   for (let s = 0; s < FORECAST_STEPS; s++) {
     forecastGrid = predictNextGrid(forecastGrid, DIFF_COEFF, DECAY);
-    // flatten quick representation
     const cells = [];
     for (let i = 0; i < ROWS; i++) for (let j = 0; j < COLS; j++) {
       const c = cellCenter(i, j);
@@ -517,10 +464,8 @@ function periodicPublish() {
   }
   client.publish("risk/forecast", JSON.stringify({ gridId: "g1", ts: Date.now(), forecasts }));
 
-  // publish volunteer flow vectors
   publishVolFlow();
 
-  // detect zones and publish risk/zone if cluster found
   detectAndPublishZones();
 }
 
@@ -548,11 +493,10 @@ client.on("message", (topic, msg) => {
   }
 });
 
-/* Start periodic publishing loop */
 setInterval(periodicPublish, PUBLISH_INTERVAL_MS);
 
-/* Graceful shutdown */
 process.on("SIGINT", () => {
   console.log("Risk predictor shutting down...");
   try { client.end(false, () => process.exit(0)); } catch (e) { process.exit(0); }
 });
+
