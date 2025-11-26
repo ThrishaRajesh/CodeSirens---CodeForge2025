@@ -1,0 +1,7 @@
+[
+  {"id": "hosp1", "name": "Fortis Hospital Rajajinagar", "lat": 13.0021, "lng": 77.5491},
+  {"id": "hosp2", "name": "Manipal Hospitals", "lat": 12.9584, "lng": 77.6488},
+  {"id": "hosp3", "name": "Columbiaa Hospital", "lat": 13.0104, "lng": 77.6583},
+  {"id": "hosp4", "name": "Victoria Hospital", "lat": 12.9643, "lng": 77.5754},
+  {"id": "hosp5", "name": "Apollo Hospitals Bannerghatta", "lat": 12.8962, "lng": 77.5986}
+]

@@ -1,0 +1,5 @@
+[
+  {"id": "s1", "name": "Shelter 1", "lat": 12.975, "lng": 77.605},
+  {"id": "s2", "name": "Shelter 2", "lat": 12.965, "lng": 77.59},
+  {"id": "s3", "name": "Shelter 3", "lat": 12.955, "lng": 77.61}
+]

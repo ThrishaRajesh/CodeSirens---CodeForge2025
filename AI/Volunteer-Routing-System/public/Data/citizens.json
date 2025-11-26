@@ -1,0 +1,6 @@
+[
+  {"id": "cit1", "name": "Citizen 1", "lat": 12.962, "lng": 77.583},
+  {"id": "cit2", "name": "Citizen 2", "lat": 12.975, "lng": 77.592},
+  {"id": "cit3", "name": "Citizen 3", "lat": 12.985, "lng": 77.578},
+  {"id": "cit4", "name": "Citizen 4", "lat": 12.968, "lng": 77.565}
+]
