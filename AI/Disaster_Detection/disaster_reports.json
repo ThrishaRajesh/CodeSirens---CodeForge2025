@@ -1,0 +1,241 @@
+[
+  {
+    "timestamp": "2025-11-26T10:22:42.374699",
+    "disaster_type": "fire",
+    "confidence": 0.9998314380645752,
+    "risk_level": "high",
+    "detected_features": [
+      "Fire detected (100.0%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901444024000101,
+      "longitude": 77.51850530828877,
+      "address": "RNS Institute of Technology, 23rd Cross Road, Channasandra, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "Fire.jpg"
+  },
+  {
+    "timestamp": "2025-11-26T10:23:22.610052",
+    "disaster_type": "flood",
+    "confidence": 0.95,
+    "risk_level": "high",
+    "detected_features": [
+      "Voice indicates flood (95.0%)"
+    ],
+    "voice_vote": {
+      "label": "flood",
+      "score": 0.95,
+      "tags": [
+        "doob",
+        "nadi",
+        "paani"
+      ]
+    },
+    "voice_transcript": "Nadi ka paani sadak par aa gaya, gaadiyaan doob rahi hain.",
+    "location": {
+      "latitude": 12.901588578912678,
+      "longitude": 77.51864482634899,
+      "address": "RNS Institute of Technology, 23rd Cross Road, Channasandra, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": null
+  },
+  {
+    "timestamp": "2025-11-26T10:28:54.646047",
+    "disaster_type": "no clear disaster detected",
+    "confidence": 0.1,
+    "risk_level": "low",
+    "detected_features": [],
+    "voice_vote": null,
+    "voice_transcript": " \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a \u0906\u092a",
+    "location": {
+      "latitude": 12.901291159743757,
+      "longitude": 77.51820385321949,
+      "address": "RNS Institute of Technology, 23rd Cross Road, Channasandra, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": null
+  },
+  {
+    "timestamp": "2025-11-26T10:29:55.155745",
+    "disaster_type": "no clear disaster detected",
+    "confidence": 0.1,
+    "risk_level": "low",
+    "detected_features": [],
+    "voice_vote": null,
+    "voice_transcript": " Gory shaking helps me.",
+    "location": {
+      "latitude": 12.90155,
+      "longitude": 77.51744,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": null
+  },
+  {
+    "timestamp": "2025-11-26T10:31:19.664281",
+    "disaster_type": "no clear disaster detected",
+    "confidence": 0.1,
+    "risk_level": "low",
+    "detected_features": [],
+    "voice_vote": null,
+    "voice_transcript": " Slowly shaking, help me please.",
+    "location": {
+      "latitude": 12.90155,
+      "longitude": 77.51744,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": null
+  },
+  {
+    "timestamp": "2025-11-26T10:34:59.091212",
+    "disaster_type": "earthquake/building collapse",
+    "confidence": 0.8,
+    "risk_level": "high",
+    "detected_features": [
+      "Voice indicates earthquake/building collapse (80.0%)"
+    ],
+    "voice_vote": {
+      "label": "earthquake/building collapse",
+      "score": 0.8,
+      "tags": [
+        "earthquake"
+      ]
+    },
+    "voice_transcript": " Sound is shaking, I think it's an earthquake.",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, 23rd Cross Road, Channasandra, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": null
+  },
+  {
+    "timestamp": "2025-11-26T10:39:18.452150",
+    "disaster_type": "no clear disaster detected",
+    "confidence": 0.1,
+    "risk_level": "low",
+    "detected_features": [
+      "Destruction detected: crash helmet (4.9%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "building-1476961463.jpg"
+  },
+  {
+    "timestamp": "2025-11-26T10:40:00.320694",
+    "disaster_type": "earthquake/building collapse",
+    "confidence": 0.9297397136688232,
+    "risk_level": "high",
+    "detected_features": [
+      "Building-related: church, church building (0.6%)",
+      "Damage indicator: wreck (93.0%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "OswaldMoore2LoRes.jpg"
+  },
+  {
+    "timestamp": "2025-11-26T10:44:59.801977",
+    "disaster_type": "structural damage",
+    "confidence": 0.6,
+    "risk_level": "medium",
+    "detected_features": [
+      "Building-related: boathouse (89.2%)",
+      "Building-related: breakwater, groin, groyne, mole, bulwark, seawall, jetty (0.2%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "images (1).jpg"
+  },
+  {
+    "timestamp": "2025-11-26T10:45:35.100728",
+    "disaster_type": "structural damage",
+    "confidence": 0.6,
+    "risk_level": "medium",
+    "detected_features": [
+      "Building-related: boathouse (64.6%)",
+      "Building-related: breakwater, groin, groyne, mole, bulwark, seawall, jetty (2.4%)",
+      "Building-related: prison, prison house (1.2%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "chris-gallagher-0PHUAtg_2CQ-unsplash-scaled.jpg"
+  },
+  {
+    "timestamp": "2025-11-26T10:46:25.738577",
+    "disaster_type": "structural damage",
+    "confidence": 0.6,
+    "risk_level": "medium",
+    "detected_features": [
+      "Building-related: boathouse (0.5%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "flood-internal-1024x538.png"
+  },
+  {
+    "timestamp": "2025-11-26T10:47:40.655722",
+    "disaster_type": "structural damage",
+    "confidence": 0.6,
+    "risk_level": "medium",
+    "detected_features": [
+      "Destruction detected: wreck (5.3%)",
+      "Building-related: boathouse (3.4%)",
+      "Building-related: beacon, lighthouse, beacon light, pharos (2.3%)",
+      "Building-related: breakwater, groin, groyne, mole, bulwark, seawall, jetty (1.5%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "images (2).jpg"
+  },
+  {
+    "timestamp": "2025-11-26T10:48:31.021649",
+    "disaster_type": "flood",
+    "confidence": 0.7836957494728267,
+    "risk_level": "high",
+    "detected_features": [
+      "Building-related: boathouse (1.5%)",
+      "Building-related: breakwater, groin, groyne, mole, bulwark, seawall, jetty (0.5%)",
+      "Building-related: beacon, lighthouse, beacon light, pharos (0.2%)",
+      "Water/flooding detected (78.4%)"
+    ],
+    "voice_vote": null,
+    "voice_transcript": "",
+    "location": {
+      "latitude": 12.901574896882913,
+      "longitude": 77.51818846254257,
+      "address": "RNS Institute of Technology, NICE Expressway, Channasandra, Ganakkal, Banashankari 6th Stage, Bengaluru West City Corporation, Bengaluru, Bangalore South, Bengaluru Urban, Karnataka, 560098, India"
+    },
+    "filename": "AP24254586188844-1726071602.webp"
+  }
+]
