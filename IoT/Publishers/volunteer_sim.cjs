@@ -1,22 +1,8 @@
-/**
- * volunteer_sim.js
- * Upgraded volunteer mobility simulator
- * Publishes BOTH:
- *   - volunteers/{id}/gps      (absolute GPS)
- *   - volunteers/{id}/vector   (movement direction + speed)
- *
- * Supports:
- *   • Crowd-Pulse analytics
- *   • Volunteer Velocity Field (flow arrows)
- *   • Dynamic task reassignment
- *   • Sync with sensor grid (Assam flood zone)
- */
-
 const mqtt = require("mqtt");
 
 const BROKER_URL = "mqtt://localhost:1883";
 const PUBLISH_MS = 2000;
-const MOVE_RANGE = 0.0007;    // ~70m step
+const MOVE_RANGE = 0.0007;    
 const CENTER = { lat: 26.2006, lon: 92.9376 };  // Assam – Brahmaputra Basin
 
 const client = mqtt.connect(BROKER_URL);
@@ -25,7 +11,7 @@ client.on("connect", () =>
 );
 client.on("error", (err) => { console.error(err); process.exit(1); });
 
-/** Four volunteers starting around the region */
+/** Four volunteers*/
 const volunteers = [
   { id: 1, lat: CENTER.lat, lon: CENTER.lon },
   { id: 2, lat: CENTER.lat + 0.0008, lon: CENTER.lon - 0.0004 },
@@ -49,24 +35,18 @@ function haversine(aLat, aLon, bLat, bLon) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-/** ----------------------------------------------
- * Publish GPS + velocity vector
- * ---------------------------------------------- */
 function publishPositions() {
   volunteers.forEach((v) => {
     const prev = { lat: v.lat, lon: v.lon, t: v.t || Date.now() };
 
-    // Random walk
     v.lat = randomStep(v.lat);
     v.lon = randomStep(v.lon);
     v.t = Date.now();
 
-    // Compute displacement & speed
     const dist = haversine(prev.lat, prev.lon, v.lat, v.lon);
     const dtSec = (v.t - prev.t) / 1000;
     const speed = dist / dtSec; // m/s
 
-    // Direction vector components
     const dx = v.lon - prev.lon;
     const dy = v.lat - prev.lat;
 
@@ -101,3 +81,4 @@ function publishPositions() {
 
 setInterval(publishPositions, PUBLISH_MS);
 console.log("Volunteer simulation started…");
+
