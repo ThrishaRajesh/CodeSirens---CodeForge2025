@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Before/After Damage Comparison</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #ffecd2, #fcb69f);
+            --primary: #ff7e5f;
+            --primary-dark: #eb5b3f;
+            --card-bg: rgba(255, 255, 255, 0.96);
+            --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.15);
+            --radius-lg: 22px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: var(--bg-gradient);
+            font-family: "Poppins", Arial, sans-serif;
+            color: #222;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 30px 10px;
+        }
+
+        .wrapper {
+            width: 100%;
+            max-width: 1150px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-soft);
+            padding: 28px 30px 30px 30px;
+            backdrop-filter: blur(6px);
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            flex-wrap: wrap;
+            margin-bottom: 18px;
+        }
+
+        .title-block h1 {
+            margin: 0;
+            font-size: 2.4rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+        }
+
+        .title-block p {
+            margin: 5px 0 0;
+            font-size: 0.95rem;
+            color: #555;
+        }
+
+        .badge {
+            padding: 7px 14px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: rgba(255, 126, 95, 0.1);
+            border: 1px solid rgba(255, 126, 95, 0.4);
+            color: #b94627;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ff7e5f;
+        }
+
+        form {
+            margin-top: 12px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.9fr;
+            gap: 22px;
+        }
+
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .section {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 18px 18px 20px 18px;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+        }
+
+        .section h2 {
+            margin: 0 0 12px;
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        label {
+            display: block;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .helper {
+            font-size: 0.75rem;
+            color: #777;
+            margin-top: -2px;
+            margin-bottom: 8px;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 7px;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            background: #fafafa;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px 10px;
+            font-size: 0.9rem;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            background: #fafafa;
+        }
+
+        .slider-row {
+            margin-top: 8px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .slider-label {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        .slider-value-pill {
+            background: #ff7e5f;
+            color: #fff;
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .btn-row {
+            margin-top: 16px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        button {
+            background: linear-gradient(120deg, #ff7e5f, #feb47b);
+            border: none;
+            color: white;
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 11px 26px;
+            border-radius: 999px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 10px 20px rgba(255, 126, 95, 0.45);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 26px rgba(255, 126, 95, 0.55);
+        }
+
+        button span.icon {
+            font-size: 1.1rem;
+        }
+
+        .error {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #ffe4e4;
+            border: 1px solid #ff9a9a;
+            color: #a01414;
+            font-size: 0.85rem;
+        }
+
+        .results {
+            margin-top: 18px;
+        }
+
+        .status-card {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 14px 16px 16px 16px;
+            border: 1px solid rgba(0, 0, 0, 0.03);
+            margin-bottom: 16px;
+        }
+
+        .status-title {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .status-main {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .pill {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .pill-0 { background: #e2f7e4; color: #1a7b2b; }
+        .pill-1 { background: #fff9d9; color: #8c7a10; }
+        .pill-2 { background: #ffe9d6; color: #a15513; }
+        .pill-3 { background: #ffe0df; color: #a42119; }
+
+        .images-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        @media (max-width: 800px) {
+            .images-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .img-box {
+            background: #fafafa;
+            border-radius: 15px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid #eee;
+        }
+
+        .img-box img {
+            width: 100%;
+            border-radius: 12px;
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+        }
+
+        .img-caption {
+            margin-top: 6px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .explanation {
+            margin-top: 14px;
+            font-size: 0.85rem;
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 12px 14px;
+            border: 1px dashed rgba(0, 0, 0, 0.06);
+        }
+
+        .legend-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 6px;
+        }
+
+        .legend-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8rem;
+        }
+
+        .legend-swatch {
+            width: 16px;
+            height: 8px;
+            border-radius: 999px;
+        }
+
+        .swatch-green { background: #00c853; }
+        .swatch-yellow { background: #ffd600; }
+        .swatch-orange { background: #ff9100; }
+        .swatch-red { background: #ff1744; }
+
+        .footer-note {
+            margin-top: 10px;
+            font-size: 0.75rem;
+            color: #888;
+            text-align: right;
+        }
+    </style>
+
+    <script>
+        function updateThreshold(val) {
+            document.getElementById('th-val').innerText = val;
+        }
+
+        function toggleThreshold(selectEl) {
+            const block = document.getElementById('threshold-block');
+            if (selectEl.value === 'AbsDiff') {
+                block.style.display = 'block';
+            } else {
+                block.style.display = 'none';
+            }
+        }
+    </script>
+</head>
+<body>
+<div class="wrapper">
+    <div class="card">
+        <div class="header">
+            <div class="title-block">
+                <h1>Damage Comparison Studio</h1>
+                <p>Upload <strong>before</strong> and <strong>after</strong> images to visualize and quantify damage.</p>
+            </div>
+            <div class="badge">
+                <span class="badge-dot"></span>
+                AI-Powered Visual Analyzer
+            </div>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data">
+            <div class="grid">
+                <!-- LEFT: Inputs -->
+                <div class="section">
+                    <h2>1. Upload Images</h2>
+
+                    <label>Before Image</label>
+                    <input type="file" name="before" accept="image/*" required>
+                    <div class="helper">Original / undamaged view</div>
+
+                    <label>After Image</label>
+                    <input type="file" name="after" accept="image/*" required>
+                    <div class="helper">Post-event / damaged view</div>
+                </div>
+
+                <!-- RIGHT: Settings -->
+                <div class="section">
+                    <h2>2. Analysis Settings</h2>
+
+                    <label>Comparison Method</label>
+                    <select name="method" onchange="toggleThreshold(this)">
+                        <option value="AbsDiff" {% if method == 'AbsDiff' %}selected{% endif %}>Absolute Difference</option>
+                        <option value="SSIM" {% if method == 'SSIM' %}selected{% endif %}>SSIM (Structural Similarity)</option>
+                    </select>
+                    <div class="helper">Try SSIM for more perceptual differences.</div>
+
+                    <div id="threshold-block" class="slider-row"
+                         style="{% if method != 'AbsDiff' %}display:none{% endif %}">
+                        <div class="slider-label">
+                            <span>Threshold</span>
+                            <span class="slider-value-pill" id="th-val">
+                                {{ threshold if threshold is not none else 30 }}
+                            </span>
+                        </div>
+                        <input type="range"
+                               name="threshold"
+                               min="0"
+                               max="100"
+                               value="{{ threshold if threshold is not none else 30 }}"
+                               oninput="updateThreshold(this.value)">
+                        <div class="helper">Higher threshold → only larger changes are marked.</div>
+                    </div>
+
+                    <div class="btn-row">
+                        <button type="submit">
+                            <span class="icon">⚙️</span>
+                            <span>Analyze Damage</span>
+                        </button>
+                    </div>
+
+                    {% if error %}
+                    <div class="error">
+                        {{ error }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </form>
+
+        {% if result %}
+        <div class="results">
+            <div class="status-card">
+                <div class="status-title">Overall Damage Assessment</div>
+                <div class="status-main">
+                    {{ pct|round(2) }}% area impacted
+                    <span class="pill pill-{{ score }}">
+                        {{ level }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="images-row">
+                <div class="img-box">
+                    <img src="data:image/png;base64,{{ before_img }}" alt="Before image">
+                    <div class="img-caption">Before</div>
+                </div>
+                <div class="img-box">
+                    <img src="data:image/png;base64,{{ overlay_img }}" alt="After damage overlay">
+                    <div class="img-caption">After (Score {{ score }})</div>
+                </div>
+            </div>
+
+            <div class="explanation">
+                <strong>Color Legend</strong>
+                <div class="legend-row">
+                    <div class="legend-item">
+                        <span class="legend-swatch swatch-green"></span>
+                        <span>Score 0 – No visible damage</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch swatch-yellow"></span>
+                        <span>Score 1 – Minor damage</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch swatch-orange"></span>
+                        <span>Score 2 – Major damage</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-swatch swatch-red"></span>
+                        <span>Score 3 – Destroyed / severe damage</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-note">
+                Computation powered by OpenCV + SSIM · Results approximate, not a legal assessment.
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+</body>
+</html>
