@@ -1,11 +1,3 @@
-/**
- * sensor_sim.js
- * Upgraded IoT Grid Simulator
- * Publishes rainfall + water-level data in multi-topic format:
- *    sensors/{nodeId}
- * Payload includes both raw + normalized values for downstream risk mapping.
- */
-
 const mqtt = require("mqtt");
 
 const BROKER_URL = "mqtt://localhost:1883";
@@ -30,12 +22,11 @@ const nodes = Array.from({ length: GRID_SIZE }, (_, i) => ({
   lon: CENTER.lon + (Math.random() - 0.5) * JITTER,
 }));
 
-/** Normalize helpers */
 function normalizeRain(mm) {
-  return Math.min(1, mm / 100); // rainfall: 0–100 mm/hr
+  return Math.min(1, mm / 100); 
 }
 function normalizeWater(m) {
-  return Math.min(1, m / 3);    // water level: 0–3 m
+  return Math.min(1, m / 3);   
 }
 
 /**
@@ -43,8 +34,8 @@ function normalizeWater(m) {
  */
 function pushData() {
   nodes.forEach((n) => {
-    const rainfall = +(Math.random() * 100).toFixed(1); // mm/hr
-    const water = +(Math.random() * 3).toFixed(2);      // meters
+    const rainfall = +(Math.random() * 100).toFixed(1); 
+    const water = +(Math.random() * 3).toFixed(2);     
 
     const messages = [
       {
@@ -79,3 +70,4 @@ function pushData() {
 
 setInterval(pushData, INTERVAL);
 console.log("IoT Sensor simulation started…");
+
