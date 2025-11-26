@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>FlashRescue — Assam Command Dashboard</title>
+
+    <!-- Leaflet + Heat + MQTT + rotated marker -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.heat/dist/leaflet-heat.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://unpkg.com/leaflet-rotatedmarker/leaflet.rotatedMarker.js"></script>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <style>
+        :root {
+            --panel-bg: rgba(255, 255, 255, 0.95);
+            --accent: #ff7043;
+            --muted: #6b7280;
+            --success: #10b981;
+            --danger: #ef4444;
+            --glass: rgba(255, 255, 255, 0.9);
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            font-family: Inter, "Segoe UI", Roboto, Arial;
+            background: #f3f4f6;
+        }
+
+        #map {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 320px;
+            bottom: 0;
+        }
+
+        /* reserve right panel */
+        /* Right control panel */
+        #panel {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 300px;
+            bottom: 8px;
+            background: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            overflow: auto;
+            padding: 12px;
+            z-index: 2500;
+        }
+
+        .panel-section {
+            margin-bottom: 12px;
+        }
+
+        .panel-title {
+            font-weight: 700;
+            font-size: 14px;
+            color: #111827;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .tiny {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .legend-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            display: inline-block;
+        }
+
+        .btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 8px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .btn.secondary {
+            background: transparent;
+            color: var(--muted);
+            border: 1px solid #e5e7eb;
+        }
+
+        .toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .small {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .sensor-list {
+            max-height: 220px;
+            overflow: auto;
+            padding: 6px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #eee;
+        }
+
+        .sensor-item {
+            padding: 6px;
+            border-bottom: 1px dashed #f1f5f9;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sensor-item:last-child {
+            border-bottom: none;
+        }
+
+        .big {
+            position: absolute;
+            left: 12px;
+            bottom: 12px;
+            background: var(--glass);
+            padding: 8px 12px;
+            border-radius: 10px;
+            box-shadow: 0 6px 20px rgba(2, 6, 23, 0.08);
+            z-index: 2200;
+            font-weight: 700;
+        }
+
+        /* Volunteer list */
+        .vol-list {
+            max-height: 180px;
+            overflow: auto;
+            padding: 6px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #eee;
+        }
+
+        .vol-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px;
+            border-bottom: 1px dashed #f1f5f9;
+            align-items: center;
+        }
+
+        .vol-item:last-child {
+            border-bottom: none;
+        }
+
+        /* small status dot */
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        /* top-left small controls (map layer toggles) */
+        #controls {
+            position: absolute;
+            left: 12px;
+            top: 12px;
+            z-index: 2200;
+            background: var(--panel-bg);
+            padding: 8px;
+            border-radius: 10px;
+            box-shadow: 0 6px 18px rgba(2, 6, 23, 0.08);
+        }
+
+        .control-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            font-size: 13px;
+            color: #111827;
+        }
+
+        /* responsive adjustments */
+        @media(max-width:1100px) {
+            #map {
+                right: 260px;
+            }
+
+            #panel {
+                width: 260px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <!-- top-left small controls -->
+    <div id="controls">
+        <div class="control-row"><input id="chkHeat" type="checkbox" checked> <label for="chkHeat">Risk Heat</label>
+        </div>
+        <div class="control-row"><input id="chkSensors" type="checkbox" checked> <label for="chkSensors">Sensor
+                nodes</label></div>
+        <div class="control-row"><input id="chkVol" type="checkbox" checked> <label for="chkVol">Volunteers</label>
+        </div>
+        <div class="control-row"><input id="chkFlow" type="checkbox" checked> <label for="chkFlow">Volunteer
+                Flow</label></div>
+        <div style="text-align:center"><button id="btnCenter" class="btn secondary">Center Assam</button></div>
+    </div>
+
+    <!-- Right Control Panel -->
+    <div id="panel">
+        <div class="panel-section">
+            <div class="panel-title">
+                <div>FlashRescue — Assam Command</div>
+                <div class="tiny">Live · Coordinators View</div>
+            </div>
+            <div class="small">Monitoring volunteers, sensor IoT nodes, risk heatmaps, predicted zones and evacuation
+                routing. Use right-click on the map to request a safe-route from that point.</div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Layers & Legend</div>
+            <div class="legend-row"><span class="swatch" style="background: #ffb4a2"></span>
+                <div class="tiny">Risk heat (derived)</div>
+            </div>
+            <div class="legend-row"><span class="swatch" style="background: rgba(0,120,255,0.9)"></span>
+                <div class="tiny">Sensor readings (rain/water/others)</div>
+            </div>
+            <div class="legend-row"><span class="swatch" style="background: #ef4444"></span>
+                <div class="tiny">Active Risk Zones (convex hull)</div>
+            </div>
+            <div class="legend-row"><span class="swatch" style="background: #16a34a"></span>
+                <div class="tiny">Evacuation Routes</div>
+            </div>
+            <div class="legend-row"><span class="swatch" style="background: #3b82f6"></span>
+                <div class="tiny">Volunteer Flow Vectors</div>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Volunteers <span class="tiny"> (GPS tracked)</span></div>
+            <div class="vol-list" id="volList">
+                <!-- volunteers populated here -->
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button id="btnAssign" class="btn">Assign to High-Risk</button>
+                <button id="btnClearPaths" class="btn secondary" style="padding:6px 8px">Clear Paths</button>
+            </div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">IoT Sensors · Latest readings</div>
+            <div class="sensor-list" id="sensorList">
+                <!-- sensor list entries -->
+            </div>
+            <div style="margin-top:8px;" class="tiny">Tap a sensor to view time-updated details on the map.</div>
+        </div>
+
+        <div class="panel-section">
+            <div class="panel-title">Alerts & Actions</div>
+            <div class="small">Last alert: <span id="lastAlert">—</span></div>
+            <div style="margin-top:8px; display:flex; gap:8px;">
+                <button id="btnReplay" class="btn secondary">Replay Forecast</button>
+                <button id="btnMute" class="btn secondary">Mute Alerts</button>
+            </div>
+        </div>
+        <div style="height:20px"></div>
+    </div>
+
+    <!-- bottom-left quick status -->
+    <div class="big" id="statusBox">Assam — FlashRescue · Live</div>
+
+    <!-- Map & logic scripts begin -->
+    <script>
+        // MQTT WebSocket address — change if needed
+        const MQTT_WS = 'ws://localhost:9001';
+
+        // Assam center (consistent with backend)
+        const ASSAM_CENTER = [26.2006, 92.9376];
+        const ASSAM_ZOOM = 10;
+
+        // Map init (center Assam)
+        const map = L.map('map', { zoomControl: true }).setView(ASSAM_CENTER, ASSAM_ZOOM);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+
+        // Icons
+        const volunteerIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/128/15583/15583094.png', iconSize: [30, 30], iconAnchor: [15, 15] });
+        const sensorIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/1933/1933555.png', iconSize: [20, 20], iconAnchor: [10, 10] });
+
+        // Layer holders
+        let riskHeatLayer = null;
+        let sensorLayerGroup = L.layerGroup().addTo(map);
+        let volLayerGroup = L.layerGroup().addTo(map);
+        let flowLayerGroup = L.layerGroup().addTo(map);
+        let evacRouteLayer = L.layerGroup().addTo(map);
+        let forecastGroup = L.layerGroup().addTo(map);
+        let riskZoneLayer = L.layerGroup().addTo(map);
+
+        // UI elements
+        const volListEl = document.getElementById('volList');
+        const sensorListEl = document.getElementById('sensorList');
+        const lastAlertEl = document.getElementById('lastAlert');
+
+        // Client-side state
+        const volunteers = new Map(); // id -> {marker, pathPolyline, history: [{lat,lon,ts}], assigned: bool}
+        const sensors = new Map();    // nodeId -> {marker, last, history[]}
+        let latestRiskZone = null;    // last received risk zone (centroid, hull, riskDetail)
+        let localRiskGrid = null;     // from risk/grid (cells array)
+        let flowVectors = [];         // last viz/vol_flow cells
+
+        // helper to format time
+        function fmtTime(ts) { return new Date(ts || Date.now()).toLocaleTimeString(); }
+
+        // connect mqtt
+        const mqttClient = mqtt.connect(MQTT_WS);
+        mqttClient.on('connect', () => {
+            console.log('MQTT connected (dashboard)');
+            // subscribe to all expected topics
+            mqttClient.subscribe(['volunteers/+/gps', 'volunteers/+/vector', 'sensors/#', 'risk/grid', 'risk/forecast', 'viz/vol_flow', 'risk/zone', 'routes/#']);
+        });
+
+        // unified message handler: dispatch by topic
+        mqttClient.on('message', (topic, payload) => {
+            try {
+                const msg = JSON.parse(payload.toString());
+                // volunteers
+                if (topic.match(/^volunteers\/[^\/]+\/gps$/)) return onVolunteerGps(msg);
+                if (topic.match(/^volunteers\/[^\/]+\/vector$/)) return onVolunteerVector(msg);
+                // sensors
+                if (topic.startsWith('sensors/')) return onSensor(msg, topic);
+                // risk/grid
+                if (topic === 'risk/grid') return onRiskGrid(msg);
+                if (topic === 'risk/forecast') return onRiskForecast(msg);
+                if (topic === 'viz/vol_flow') return onVolFlow(msg);
+                if (topic === 'risk/zone') return onRiskZone(msg);
+                if (topic.startsWith('routes/')) return onRoute(msg, topic);
+            } catch (e) {
+                console.warn('MQTT parse failed', e);
+            }
+        });
+
+        // control toggles
+        document.getElementById('chkHeat').addEventListener('change', (e) => {
+            if (e.target.checked) { if (riskHeatLayer) map.addLayer(riskHeatLayer); } else { if (riskHeatLayer) map.removeLayer(riskHeatLayer); }
+        });
+        document.getElementById('chkSensors').addEventListener('change', (e) => {
+            if (e.target.checked) map.addLayer(sensorLayerGroup); else map.removeLayer(sensorLayerGroup);
+        });
+        document.getElementById('chkVol').addEventListener('change', (e) => {
+            if (e.target.checked) map.addLayer(volLayerGroup); else map.removeLayer(volLayerGroup);
+        });
+        document.getElementById('chkFlow').addEventListener('change', (e) => {
+            if (e.target.checked) map.addLayer(flowLayerGroup); else map.removeLayer(flowLayerGroup);
+        });
+        document.getElementById('btnCenter').addEventListener('click', () => map.setView(ASSAM_CENTER, ASSAM_ZOOM));
+        document.getElementById('btnClearPaths').addEventListener('click', () => {
+            // clear volunteer polylines
+            for (const v of volunteers.values()) {
+                if (v.path) { v.path.setLatLngs([]); }
+                v.assigned = false;
+            }
+        });
+
+        // assign button: visual assignment to last high-risk centroid
+        document.getElementById('btnAssign').addEventListener('click', () => {
+            if (!latestRiskZone) { alert('No active high-risk zone to assign'); return; }
+            assignVolunteersToZone(latestRiskZone);
+        });
+
+        // replay forecast (visual pulse)
+        document.getElementById('btnReplay').addEventListener('click', () => {
+            if (!localRiskGrid) { alert('No forecast available yet'); return; }
+            // flicker the forecastGroup if present
+            const origOpacity = 0.25;
+            if (forecastGroup) {
+                forecastGroup.eachLayer(l => l.setStyle && l.setStyle({ fillOpacity: 0.6 }));
+                setTimeout(() => forecastGroup.eachLayer(l => l.setStyle && l.setStyle({ fillOpacity: origOpacity })), 1400);
+            }
+        });
+
+        // mute (placeholder)
+        document.getElementById('btnMute').addEventListener('click', () => {
+            alert('Alerts muted for demo (no outbound Twilio calls sent by dashboard).');
+        });
+
+    </script>
+
+    <script>
+        /* ----------------------------
+           Utility helpers
+           ---------------------------- */
+
+        function makeSensorItemHtml(nodeId, s) {
+            const last = s.last || {};
+            const html =
+                `<div style="font-weight:700">${nodeId}<span class="tiny" style="margin-left:8px;font-weight:400"> ${fmtTime(last.ts)}</span></div>
+             <div class="tiny">${last.type || 'multi'} · raw:${last.value ?? '-'} · norm:${(last.norm ?? '-')}</div>`;
+            return html;
+        }
+
+        /* ----------------------------
+           Sensor handling (sensors/{nodeId})
+           ---------------------------- */
+        function onSensor(msg, topic) {
+            // Expect improved sensor schema: { nodeId, ts, lat, lon, type, value, valueNorm }
+            const nodeId = msg.nodeId || (topic.split('/')[1] || `node-${Math.random().toString(36).slice(2, 6)}`);
+            const lat = Number(msg.lat), lon = Number(msg.lon);
+            const type = msg.type || (msg.rainfall ? 'rain' : (msg.water ? 'water' : 'unknown'));
+            const val = ('value' in msg) ? msg.value : (msg.valueNorm !== undefined ? (msg.valueNorm * 100) : null);
+            const norm = msg.valueNorm !== undefined ? Number(msg.valueNorm) : (val !== null ? Math.min(1, val / 100) : 0);
+
+            // record in sensors map
+            if (!sensors.has(nodeId)) {
+                const marker = L.marker([lat, lon], { icon: sensorIcon }).bindTooltip(`${nodeId}`, { direction: 'top' });
+                marker.addTo(sensorLayerGroup);
+                sensors.set(nodeId, { marker, history: [], last: {} });
+                // clickable -> open detailed popup
+                marker.on('click', () => {
+                    const s = sensors.get(nodeId);
+                    marker.bindPopup(`<div style="min-width:200px"><b>${nodeId}</b><br>Type: ${type}<br>Value: ${val}<br>Normalized: ${norm.toFixed(2)}<br>Last: ${fmtTime(msg.ts)}</div>`).openPopup();
+                });
+            }
+            const entry = sensors.get(nodeId);
+            entry.last = { ts: msg.ts || Date.now(), type, value: val, norm };
+            entry.history.push(entry.last);
+            if (entry.history.length > 20) entry.history.shift();
+
+            // update list UI
+            refreshSensorList();
+
+            // also update sensor heat layer source
+            // sensorHeat layer update: we maintain local array and refresh via leaflet.heat
+            if (!window._sensorHeatArr) window._sensorHeatArr = [];
+            window._sensorHeatArr.push([lat, lon, norm]);
+            if (window._sensorHeatArr.length > 1200) window._sensorHeatArr.shift();
+            if (!riskHeatLayer && document.getElementById('chkHeat').checked) {
+                // will be created by the risk grid handler; we keep a lightweight sensor heat for quick IoT visualization
+                if (!window.sensorLocalHeat) {
+                    window.sensorLocalHeat = L.heatLayer(window._sensorHeatArr, { radius: 18, blur: 12, maxZoom: 16 }).addTo(map);
+                } else {
+                    window.sensorLocalHeat.setLatLngs(window._sensorHeatArr);
+                }
+            } else if (window.sensorLocalHeat) {
+                window.sensorLocalHeat.setLatLngs(window._sensorHeatArr);
+            }
+        }
+
+        function refreshSensorList() {
+            // show latest 40 sensors sorted by last timestamp
+            const arr = Array.from(sensors.entries()).map(([id, s]) => ({ id, last: s.last }));
+            arr.sort((a, b) => (b.last.ts || 0) - (a.last.ts || 0));
+            sensorListEl.innerHTML = '';
+            for (const row of arr.slice(0, 40)) {
+                const div = document.createElement('div');
+                div.className = 'sensor-item';
+                div.innerHTML = `<div><div style="font-weight:700">${row.id}</div><div class="tiny"> ${(row.last.type || '-')} · ${row.last.value ?? '-'} · ${fmtTime(row.last.ts)}</div></div>
+                             <div style="text-align:right"><button class="btn secondary" onclick="centerOnSensor('${row.id}')">View</button></div>`;
+                sensorListEl.appendChild(div);
+            }
+        }
+
+        window.centerOnSensor = function (nodeId) {
+            const s = sensors.get(nodeId);
+            if (!s) return alert('No sensor found');
+            map.panTo(s.marker.getLatLng());
+            s.marker.openPopup?.();
+        };
+
+        /* ----------------------------
+           Volunteers: GPS & Vector
+           ---------------------------- */
+
+        function onVolunteerGps(msg) {
+            // msg: { id, lat, lon, speed, timestamp }
+            const id = msg.id ?? msg.volId ?? ('vol-' + Math.floor(Math.random() * 1000));
+            const lat = Number(msg.lat), lon = Number(msg.lon), ts = msg.timestamp || msg.ts || Date.now();
+            let v = volunteers.get(id);
+            if (!v) {
+                // create marker & path
+                const marker = L.marker([lat, lon], { icon: volunteerIcon, rotationAngle: 0, title: `Volunteer ${id}` }).addTo(volLayerGroup);
+                const path = L.polyline([[lat, lon]], { color: '#3b82f6', weight: 2, dashArray: '4,6' }).addTo(volLayerGroup);
+                v = { id, marker, path, history: [], assigned: false, assignment: null };
+                volunteers.set(id, v);
+                // add to list UI
+                addVolunteerListItem(v);
+            } else {
+                v.marker.setLatLng([lat, lon]);
+                v.path.addLatLng([lat, lon]);
+            }
+            // update history
+            v.history.push({ lat, lon, ts });
+            if (v.history.length > 40) v.history.shift();
+            // update list UI status
+            updateVolunteerListItem(id, v);
+        }
+
+        function onVolunteerVector(msg) {
+            // optional: update flow vectors (not changing marker positions)
+            // we ignore for marker placement; vol flow map is drawn from viz/vol_flow topic
+        }
+
+        function addVolunteerListItem(v) {
+            const el = document.createElement('div');
+            el.className = 'vol-item';
+            el.id = `vol-${v.id}`;
+            el.innerHTML = `<div><span class="dot" style="background:#3b82f6"></span>Vol ${v.id}</div><div style="text-align:right"><button class="btn secondary" onclick="centerOnVolunteer('${v.id}')">Center</button></div>`;
+            volListEl.appendChild(el);
+        }
+        function updateVolunteerListItem(id, v) {
+            const el = document.getElementById(`vol-${id}`);
+            if (!el) return;
+            const last = v.history[v.history.length - 1];
+            el.innerHTML = `<div><span class="dot" style="background:#3b82f6"></span>Vol ${id}<div class="tiny">${fmtTime(last.ts)}</div></div>
+                          <div style="text-align:right"><button class="btn secondary" onclick="centerOnVolunteer('${id}')">Center</button></div>`;
+        }
+
+        window.centerOnVolunteer = function (id) {
+            const v = volunteers.get(id);
+            if (!v) return alert('Volunteer not found');
+            map.panTo(v.marker.getLatLng());
+        };
+
+        /* ----------------------------
+           Risk Grid (heatmap generation & grid storage)
+           ---------------------------- */
+        function onRiskGrid(msg) {
+            // Expect msg: { gridId, ts, rows, cols, cells:[{i,j,lat,lon,risk}] }
+            if (!msg || !msg.cells) return;
+            localRiskGrid = msg; // keep for routing
+            // build heat array (lat,lon,intensity)
+            const heat = msg.cells.map(c => [c.lat, c.lon, Math.max(0.01, c.risk)]);
+            // create or update heat layer
+            if (!riskHeatLayer) {
+                riskHeatLayer = L.heatLayer(heat, { radius: 25, blur: 18, maxZoom: 16, gradient: { 0.2: 'blue', 0.4: 'lime', 0.6: 'orange', 0.9: 'red' } }).addTo(map);
+            } else {
+                riskHeatLayer.setLatLngs(heat);
+            }
+            // if checkbox off remove
+            if (!document.getElementById('chkHeat').checked && riskHeatLayer) map.removeLayer(riskHeatLayer);
+        }
+
+        /* Forecast handler */
+        function onRiskForecast(msg) {
+            // msg: { gridId, ts, forecasts:[{step,ts,cells:[{i,j,lat,lon,risk}]}] }
+            // draw semi-transparent rectangles for forecast steps (pulsing)
+            forecastGroup.clearLayers();
+            if (!msg || !msg.forecasts) return;
+            for (let s of msg.forecasts) {
+                const group = L.layerGroup();
+                for (const c of s.cells) {
+                    if (c.risk < 0.25) continue;
+                    // cell size derived from neighboring lat/lon differences
+                    const latDelta = (msg.cells && msg.cells[1]) ? Math.abs(msg.cells[1].lat - msg.cells[0].lat) : 0.001;
+                    const lonDelta = (msg.cells && msg.cells[1]) ? Math.abs(msg.cells[1].lon - msg.cells[0].lon) : 0.001;
+                    const bounds = [[c.lat - latDelta / 2, c.lon - lonDelta / 2], [c.lat + latDelta / 2, c.lon + lonDelta / 2]];
+                    const rect = L.rectangle(bounds, { fillOpacity: 0.06 + (s.step * 0.03), weight: 0, fillColor: '#ff9800' });
+                    group.addLayer(rect);
+                }
+                forecastGroup.addLayer(group);
+            }
+        }
+
+        /* viz / volunteer flow */
+        function onVolFlow(msg) {
+            // msg: { ts, cells: [{i,j,lat,lon,vx,vy,magnitude,count}] }
+            flowLayerGroup.clearLayers();
+            if (!msg || !msg.cells) return;
+            for (const c of msg.cells) {
+                const angle = Math.atan2(c.vy, c.vx) * 180 / Math.PI;
+                const len = Math.min(35, Math.max(8, c.magnitude * 3000));
+                // simple arrow using divIcon
+                const arrowSvg = `<svg width="${len}" height="10" viewBox="0 0 ${len} 10" xmlns="http://www.w3.org/2000/svg">
+              <line x1="0" y1="5" x2="${len - 6}" y2="5" stroke="#0ea5e9" stroke-width="2" marker-end="url(#m)"/>
+              <defs><marker id="m" markerWidth="6" markerHeight="6" refX="0" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 z" fill="#0ea5e9"/></marker></defs>
+            </svg>`;
+                const icon = L.divIcon({ html: arrowSvg, className: '', iconSize: [len, 10], iconAnchor: [len / 2, 5] });
+                const mk = L.marker([c.lat, c.lon], { icon: icon, rotationAngle: angle }).addTo(flowLayerGroup);
+            }
+        }
+
+        /* risk zone message -> polygon & centroid -> trigger assignment visual */
+        function onRiskZone(msg) {
+            // msg: { hull: [[lat,lon], ...], centroid:{lat,lon}, ts, riskDetail }
+            latestRiskZone = msg;
+            lastAlertEl.innerText = `${msg.riskDetail.total.toFixed(2)} @ ${fmtTime(msg.ts)}`;
+            // draw polygon
+            riskZoneLayer.clearLayers();
+            const latlngs = msg.hull.map(p => [p[0], p[1]]);
+            const poly = L.polygon(latlngs, { color: '#ef4444', weight: 2, fillColor: '#ffb4a2', fillOpacity: 0.28 }).addTo(riskZoneLayer);
+            poly.bindPopup(`<b>High-Risk Zone</b><br>Score: ${msg.riskDetail.total.toFixed(3)}<br>Hazards: ${(msg.riskDetail.hazards || []).join(', ')}`).openPopup();
+            // centroid marker
+            const cent = [msg.centroid.lat, msg.centroid.lon];
+            L.circleMarker(cent, { radius: 8, color: '#7c2d12', fillColor: '#ffcc00', fillOpacity: 1 }).addTo(riskZoneLayer);
+
+            // auto visualize assignment (but do not publish back to MQTT — visual only)
+            assignVolunteersToZone(msg);
+        }
+
+        /* route messages: display evac route published by risk predictor */
+        function onRoute(msg, topic) {
+            // topic like routes/{requestId}, msg: { requestId, ts, origin, waypoints }
+            evacRouteLayer.clearLayers();
+            if (!msg.waypoints) return;
+            const line = msg.waypoints.map(w => [w.lat, w.lon]);
+            const poly = L.polyline(line, { color: '#16a34a', weight: 4, opacity: 0.95 }).addTo(evacRouteLayer);
+            // animate small marker along line
+            animateAssignmentAlong(line);
+        }
+
+        /* ----------------------------
+           Assignment logic (visual only)
+           - assign volunteers to closest high-risk centroid
+           - draw arrows from volunteer -> assigned target
+           - animate a "planned path" polyline on volunteer path layer
+           ---------------------------- */
+        function assignVolunteersToZone(zone) {
+            if (!zone) return;
+            const centroid = { lat: zone.centroid.lat, lon: zone.centroid.lon };
+            // compute distances from each volunteer and assign nearest few (or all)
+            const arr = Array.from(volunteers.entries()).map(([id, v]) => {
+                const last = v.history && v.history.length ? v.history[v.history.length - 1] : null;
+                const lat = last ? last.lat : v.marker.getLatLng().lat;
+                const lon = last ? last.lon : v.marker.getLatLng().lng;
+                const d = distM(lat, lon, centroid.lat, centroid.lon);
+                return { id, d, lat, lon };
+            });
+            arr.sort((a, b) => a.d - b.d);
+
+            // determine how many volunteers to assign - e.g., top 4 or all under certain distance
+            const toAssign = arr.slice(0, Math.max(1, Math.min(arr.length, 6)));
+            // draw assignment arrow & planned path for each
+            for (const a of toAssign) {
+                const v = volunteers.get(a.id);
+                if (!v) continue;
+                v.assigned = true;
+                v.assignment = centroid;
+                // draw a dashed planned polyline from current loc to centroid
+                const from = v.history && v.history.length ? [v.history[v.history.length - 1].lat, v.history[v.history.length - 1].lon] : v.marker.getLatLng();
+                const planned = L.polyline([from, [centroid.lat, centroid.lon]], { color: '#ff8a65', weight: 2, dashArray: '6,8' }).addTo(volLayerGroup);
+                // store as assignmentLayer for later cleanup
+                v.assignmentLayer && volLayerGroup.removeLayer(v.assignmentLayer);
+                v.assignmentLayer = planned;
+                // draw small arrow marker pointing toward centroid
+                v.assignmentArrow && volLayerGroup.removeLayer(v.assignmentArrow);
+                const angle = Math.atan2(centroid.lat - from[0], centroid.lon - from[1]) * 180 / Math.PI;
+                const arrowIcon = L.divIcon({ html: `<svg width="40" height="12"><line x1="0" y1="6" x2="30" y2="6" stroke="#f97316" stroke-width="2"/><polygon points="30,3 38,6 30,9" fill="#f97316"/></svg>`, className: '', iconSize: [40, 12] });
+                v.assignmentArrow = L.marker([(from[0] + centroid.lat) / 2, (from[1] + centroid.lon) / 2], { icon: arrowIcon, rotationAngle: angle }).addTo(volLayerGroup);
+
+                // animate a local demo token moving towards centroid to visualize volunteer response
+                animateVolunteerMovement(v, from, [centroid.lat, centroid.lon], 3000 + Math.random() * 2000);
+            }
+        }
+
+        /* animate volunteer movement visually (dashboard-only simulation of volunteer moving to target) */
+        function animateVolunteerMovement(vol, fromLatLng, toLatLng, duration) {
+            // do not move the actual marker position permanently (we keep original marker updated by MQTT)
+            const steps = Math.max(8, Math.floor(duration / 80));
+            let step = 0;
+            const start = [fromLatLng[0], fromLatLng[1]];
+            const end = [toLatLng[0], toLatLng[1]];
+            const animId = setInterval(() => {
+                step++;
+                const t = step / steps;
+                const curLat = start[0] + (end[0] - start[0]) * t;
+                const curLon = start[1] + (end[1] - start[1]) * t;
+                // show a temp marker or adjust assignmentArrow position
+                if (!vol._demoMarker) {
+                    vol._demoMarker = L.circleMarker([curLat, curLon], { radius: 6, color: '#ff8a65', fillColor: '#fff', fillOpacity: 1 }).addTo(volLayerGroup);
+                } else {
+                    vol._demoMarker.setLatLng([curLat, curLon]);
+                }
+                if (step >= steps) {
+                    clearInterval(animId);
+                    // leave a final pulse
+                    if (vol._demoMarker) {
+                        vol._demoMarker.bindPopup('Arrived (visual demo)').openPopup();
+                        setTimeout(() => { volLayerGroup.removeLayer(vol._demoMarker); vol._demoMarker = null; }, 3500);
+                    }
+                }
+            }, Math.max(40, duration / steps));
+        }
+
+        function animateAssignmentAlong(latlngs) {
+            // small single marker slide along the route for visual effect
+            if (!latlngs || !latlngs.length) return;
+            const marker = L.circleMarker(latlngs[0], { radius: 6, color: '#16a34a', fillColor: '#fff', fillOpacity: 1 }).addTo(evacRouteLayer);
+            let idx = 0;
+            const step = () => {
+                idx++;
+                if (idx >= latlngs.length) { evacRouteLayer.removeLayer(marker); return; }
+                marker.setLatLng(latlngs[idx]);
+                setTimeout(step, 300);
+            };
+            setTimeout(step, 300);
+        }
+
+        /* ----------------------------
+           Map right-click to request a safe route (dashboard-local)
+           ---------------------------- */
+        map.on('contextmenu', function (e) {
+            const clickLat = e.latlng.lat, clickLon = e.latlng.lng;
+            if (!localRiskGrid) {
+                alert('Risk grid not yet available - try after sensors heartbeat.');
+                return;
+            }
+            // compute local simple safe route: choose low-risk border cell, run a quick A* on localRiskGrid (client)
+            const startIdx = findNearestCellIndex(clickLat, clickLon);
+            const goalIdx = findLowRiskBorderCellIndex();
+            if (!startIdx || !goalIdx) {
+                alert('No route available');
+                return;
+            }
+            const costGrid = buildClientCostGrid(); // from localRiskGrid
+            const path = astarClient(startIdx, goalIdx, costGrid);
+            if (!path) { alert('No safe path found'); return; }
+            const latlngs = path.map(p => {
+                const cell = localRiskGrid.cells.find(c => c.i === p.i && c.j === p.j);
+                return [cell.lat, cell.lon];
+            });
+            // draw and animate
+            evacRouteLayer.clearLayers();
+            const poly = L.polyline(latlngs, { color: '#16a34a', weight: 4 }).addTo(evacRouteLayer);
+            animateAssignmentAlong(latlngs);
+        });
+
+        /* Helper: find nearest cell index for lat/lon */
+        function findNearestCellIndex(lat, lon) {
+            if (!localRiskGrid) return null;
+            // naive nearest by linear search (grid typically small)
+            let best = null; let bestDist = Number.POSITIVE_INFINITY;
+            for (const c of localRiskGrid.cells) {
+                const d = distM(lat, lon, c.lat, c.lon);
+                if (d < bestDist) { bestDist = d; best = { i: c.i, j: c.j }; }
+            }
+            return best;
+        }
+        function findLowRiskBorderCellIndex() {
+            if (!localRiskGrid) return null;
+            // candidates: border cells
+            const border = localRiskGrid.cells.filter(c => c.i === 0 || c.j === 0 || c.i === localRiskGrid.rows - 1 || c.j === localRiskGrid.cols - 1);
+            border.sort((a, b) => a.risk - b.risk);
+            if (!border.length) return null;
+            return { i: border[0].i, j: border[0].j };
+        }
+
+        /* Client cost grid builder from localRiskGrid */
+        function buildClientCostGrid(weight = 9.0) {
+            if (!localRiskGrid) return null;
+            const rows = localRiskGrid.rows, cols = localRiskGrid.cols;
+            const cost = Array.from({ length: rows }, () => Array(cols).fill(1));
+            for (const c of localRiskGrid.cells) {
+                cost[c.i][c.j] = 1 + weight * c.risk;
+            }
+            return { cost, rows, cols };
+        }
+
+        /* A* implementation (client): returns path of {i,j} */
+        function astarClient(startIdx, goalIdx, costGridObj) {
+            // reusing A* code provided earlier in risk_predictor but simplified for client
+            const rows = costGridObj.rows, cols = costGridObj.cols;
+            function inBounds(i, j) { return i >= 0 && i < rows && j >= 0 && j < cols; }
+            function heuristic(a, b) { const di = a.i - b.i, dj = a.j - b.j; return Math.sqrt(di * di + dj * dj); }
+            const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+            const open = new MinHeap();
+            const openMap = new Map();
+
+            const startKey = `${startIdx.i},${startIdx.j}`;
+            open.push({ key: startKey, f: heuristic(startIdx, goalIdx), i: startIdx.i, j: startIdx.j, g: 0 });
+            openMap.set(startKey, { f: heuristic(startIdx, goalIdx), g: 0, parent: null });
+
+            while (!open.isEmpty()) {
+                const node = open.pop();
+                const key = node.key;
+                if (!openMap.has(key)) continue;
+                const cur = openMap.get(key);
+                const [ci, cj] = key.split(',').map(Number);
+                if (ci === goalIdx.i && cj === goalIdx.j) {
+                    // reconstruct path
+                    const path = [];
+                    let k = key;
+                    while (k) {
+                        const [pi, pj] = k.split(',').map(Number);
+                        path.push({ i: pi, j: pj });
+                        const parent = openMap.get(k).parent;
+                        k = parent;
+                    }
+                    path.reverse();
+                    return path;
+                }
+                openMap.delete(key);
+                for (const d of dirs) {
+                    const ni = ci + d[0], nj = cj + d[1];
+                    if (!inBounds(ni, nj)) continue;
+                    const moveCost = (d[0] === 0 || d[1] === 0) ? 1 : Math.SQRT2;
+                    const riskCost = costGridObj.cost[ni][nj];
+                    const tentativeG = cur.g + moveCost * riskCost;
+                    const nKey = `${ni},${nj}`;
+                    const existing = openMap.get(nKey);
+                    if (!existing || tentativeG < existing.g) {
+                        const h = heuristic({ i: ni, j: nj }, goalIdx);
+                        const f = tentativeG + h;
+                        openMap.set(nKey, { f, g: tentativeG, parent: key });
+                        open.push({ key: nKey, f, i: ni, j: nj, g: tentativeG });
+                    }
+                }
+            }
+            return null;
+        }
+
+        /* ----------------------------
+           Small UI polish & initial state
+           ---------------------------- */
+        map.on('zoomend', () => {
+            // optionally adjust heat radius
+        });
+
+        // initial center hint
+        map.setView(ASSAM_CENTER, ASSAM_ZOOM);
+        document.getElementById('statusBox').innerText = `Assam Command — Live · ${new Date().toLocaleTimeString()}`;
+
+        // small ticker to show active counts
+        setInterval(() => {
+            const volCount = volunteers.size;
+            const sensorCount = sensors.size;
+            document.getElementById('statusBox').innerText = `Assam · Volunteers: ${volCount} · Sensors: ${sensorCount} · ${fmtTime()}`;
+        }, 1500);
+
+        // graceful cleanup on page close
+        window.addEventListener('beforeunload', () => {
+            try { mqttClient.end(); } catch (e) { }
+        });
+
+        // expose some internals for debug in console
+        window._flashrescue = { volunteers, sensors, localRiskGrid };
+
+    </script>
+</body>
+
+</html>
